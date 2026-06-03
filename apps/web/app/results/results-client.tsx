@@ -169,7 +169,10 @@ export function ResultsClient() {
                 <div className="mt-auto pt-5">
                   <div className="text-xs text-white/45">all-in for {pax} {pax === 1 ? "traveler" : "travelers"}</div>
                   <div className="tabnum font-display text-3xl font-extrabold">{sym}{Math.round(deal.priceTotal).toLocaleString()}</div>
-                  <Link href={`/checkout?deal=${deal.id}`} className="btn-primary mt-3 w-full">
+                  <Link
+                    href={`/checkout?deal=${deal.id}&p=${encodeURIComponent(sp.get("p") ?? "")}&price=${deal.priceTotal}&cur=${deal.currency}`}
+                    className="btn-primary mt-3 w-full"
+                  >
                     Choose this one <ArrowRight size={18} />
                   </Link>
                 </div>

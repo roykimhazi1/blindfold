@@ -14,7 +14,7 @@ Full product/architecture plan: `.claude/plans/lets-build-together-a-distributed
 ## Monorepo layout (npm workspaces + Turborepo)
 
 ```
-apps/web/        Next.js (App Router) — marketing, booking wizard, results, checkout stub, /admin
+apps/web/        Next.js (App Router) — marketing, wizard, results, checkout, reveal journey, /admin
 packages/engine/ Deterministic deal pipeline + mock providers + seed catalog + leak-check (the heart)
 packages/agents/ Orchestrator + specialist AI agents wrapping the engine (Claude tool-use, mock fallback)
 ```
@@ -44,6 +44,21 @@ score (`scoring.ts`) → select 3 diverse → build hints (`hints.ts`) → redac
 
 The AI layer (`packages/agents`) wraps this: `orchestrateDeals()` runs the pipeline, then the
 Surprise Copywriter agent rewrites teasers via the LLM **with a leak-guard**.
+
+## Booking + reveal journey
+
+After a user picks a deal, the **progressive reveal** kicks in (the product's signature):
+
+- `packages/engine/src/reveal.ts` — pure state machine: `buildSchedule()` + `stageAt()` compute the
+  stage (`booked → teaser → gate → arrival → complete`) from departure/return dates and `now`.
+- `apps/web/lib/bookings.ts` — in-memory booking store (on `globalThis`; no DB in the MVP). Holds the
+  **secret** (real city/hotel) server-side.
+- `apps/web/lib/trip-view.ts` — `toTripView()` projects a booking to a client-safe shape that **only
+  includes secret fields the current stage has earned** (destination at `gate`, hotel/driver at
+  `arrival`). The server never ships the secret early.
+- APIs: `POST /api/book` (recompute the chosen deal → persist booking), `POST /api/trip/[id]/advance`
+  (the demo "time machine" fast-forwards the reveal). Trip UI: `app/trip/[id]` with a countdown,
+  staged reveal cards, and the sealed-reveal overlay.
 
 ### Guardrails (do not weaken)
 - **Agents find, code does the math.** Prices are computed deterministically in `pricing.ts`,
