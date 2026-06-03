@@ -1,0 +1,41 @@
+// Public surface of the deal engine.
+export * from "./types.ts";
+export { CATALOG, activeDestinations, findDestination } from "./catalog.ts";
+export { filterCandidates } from "./filters.ts";
+export { mockProviders } from "./providers/mock.ts";
+export {
+  DEFAULT_PRICING,
+  priceBundle,
+  budgetCeilingEur,
+  fitsBudget,
+  convertFromEur,
+} from "./pricing.ts";
+export { scoreOption, selectDiverse } from "./scoring.ts";
+export {
+  buildHints,
+  findLeaks,
+  findCatalogLeaks,
+  assertNoLeaks,
+  climateBand,
+  flightBand,
+} from "./hints.ts";
+export {
+  runDealPipeline,
+  toSurpriseDeal,
+  dealId,
+  type RunOptions,
+  type RunResult,
+} from "./pipeline.ts";
+
+import type { TripParams } from "./types.ts";
+
+/** Convenience: a sensible express-path TripParams for demos/tests. */
+export function exampleParams(overrides: Partial<TripParams> = {}): TripParams {
+  return {
+    budget: { amount: 1700, currency: "EUR", perPerson: false },
+    dates: { mode: "flexible", start: "2026-07-10", nights: 4, flexDays: 3 },
+    travelers: { adults: 2, childrenAges: [], partyType: "couple" },
+    departureAirport: "TLV",
+    ...overrides,
+  };
+}

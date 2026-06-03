@@ -1,0 +1,152 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: dark;
+}
+
+@layer base {
+  body {
+    @apply bg-ink-950 text-white antialiased font-sans;
+    font-feature-settings: "cv02", "cv03", "cv04", "ss01";
+  }
+  h1, h2, h3, h4 {
+    @apply font-display tracking-tight;
+  }
+  /* Visible, on-brand focus ring for keyboard users (a11y). */
+  :focus-visible {
+    outline: 2px solid theme("colors.brand.300");
+    outline-offset: 2px;
+    border-radius: 6px;
+  }
+  ::selection {
+    background: theme("colors.brand.500");
+    color: white;
+  }
+}
+
+@layer components {
+  .card {
+    @apply rounded-3xl border border-white/10 bg-white/[0.04] backdrop-blur-xl;
+  }
+  .glass {
+    @apply border border-white/10 bg-white/[0.06] backdrop-blur-xl;
+  }
+  /* Primary button: gradient, lift + press feedback. */
+  .btn-primary {
+    @apply relative inline-flex items-center justify-center gap-2 rounded-full px-7 py-3.5
+           font-semibold text-white transition-all duration-200
+           bg-gradient-to-r from-brand-500 to-coral-500
+           shadow-lg shadow-brand-500/30
+           hover:-translate-y-0.5 hover:shadow-xl hover:shadow-brand-500/40
+           active:translate-y-0 active:scale-[0.98];
+  }
+  .btn-ghost {
+    @apply inline-flex items-center justify-center gap-2 rounded-full px-7 py-3.5
+           font-semibold text-white/80 transition-all duration-200
+           border border-white/15 hover:bg-white/5 hover:text-white active:scale-[0.98];
+  }
+  .tabnum {
+    font-variant-numeric: tabular-nums;
+  }
+}
+
+/* ── Animated mesh / aurora background ───────────────────────────── */
+.aurora {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+}
+.aurora::before {
+  content: "";
+  position: absolute;
+  inset: -20%;
+  z-index: -2;
+  background:
+    radial-gradient(45% 45% at 78% 12%, rgba(244, 63, 94, 0.38), transparent 60%),
+    radial-gradient(40% 40% at 12% 18%, rgba(99, 102, 241, 0.34), transparent 60%),
+    radial-gradient(50% 50% at 50% 100%, rgba(251, 191, 36, 0.18), transparent 60%),
+    radial-gradient(45% 45% at 90% 80%, rgba(45, 212, 191, 0.16), transparent 60%);
+  background-size: 200% 200%;
+  animation: gradientPan 16s ease infinite;
+}
+.aurora::after {
+  /* subtle film grain so gradients don't band */
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  opacity: 0.04;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
+/* Morphing colour blobs used as decorative depth. */
+.blob {
+  position: absolute;
+  z-index: -1;
+  filter: blur(48px);
+  opacity: 0.6;
+  mix-blend-mode: screen;
+  animation: blob 18s ease-in-out infinite;
+  pointer-events: none;
+}
+
+/* Gradient text helper. */
+.text-gradient {
+  background: linear-gradient(100deg, #fda4af, #fbbf24 45%, #a78bfa);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+/* ── Scroll reveal ──────────────────────────────────────────────── */
+.reveal {
+  opacity: 0;
+  transform: translateY(22px);
+  transition:
+    opacity 0.7s cubic-bezier(0.22, 1, 0.36, 1),
+    transform 0.7s cubic-bezier(0.22, 1, 0.36, 1);
+  will-change: opacity, transform;
+}
+.reveal.in {
+  opacity: 1;
+  transform: none;
+}
+
+/* Shimmer sweep for loading skeletons. */
+.shimmer {
+  position: relative;
+  overflow: hidden;
+}
+.shimmer::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  transform: translateX(-100%);
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.08), transparent);
+  animation: sheen 1.6s infinite;
+}
+
+/* Image fallback wrapper: gradient shows through if a photo fails to load. */
+.photo {
+  background: linear-gradient(135deg, #322a5e, #1a1430 60%);
+}
+.photo img {
+  transition: opacity 0.6s ease, transform 0.6s ease;
+}
+
+/* ── Respect reduced-motion (a11y) ──────────────────────────────── */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+  }
+  .reveal {
+    opacity: 1;
+    transform: none;
+  }
+}

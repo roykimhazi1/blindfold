@@ -1,0 +1,26 @@
+{
+  "name": "surprise-vacation",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Surprise Vacation — book a complete trip to a hidden destination",
+  "packageManager": "npm@11.13.0",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "build": "turbo run build",
+    "dev": "turbo run dev",
+    "lint": "turbo run lint",
+    "test": "turbo run test",
+    "typecheck": "turbo run typecheck",
+    "web": "npm run dev --workspace=@sv/web"
+  },
+  "devDependencies": {
+    "turbo": "^2.3.3",
+    "typescript": "^5.7.2"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}
