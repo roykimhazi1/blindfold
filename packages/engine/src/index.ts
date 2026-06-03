@@ -26,6 +26,16 @@ export {
   type RunOptions,
   type RunResult,
 } from "./pipeline.ts";
+export {
+  REVEAL_ORDER,
+  stageRank,
+  stageAtLeast,
+  buildSchedule,
+  stageAt,
+  msToNextStage,
+  type RevealStage,
+  type RevealSchedule,
+} from "./reveal.ts";
 
 import type { TripParams } from "./types.ts";
 
