@@ -1,5 +1,7 @@
 # Surprise Vacation 🎁✈️
 
+[![CI](https://github.com/roykimhazi1/blindfold/actions/workflows/ci.yml/badge.svg)](https://github.com/roykimhazi1/blindfold/actions/workflows/ci.yml)
+
 Book a complete trip — flights, hotel, airport transfer, and attractions — to a **hidden destination**. The user enters a few parameters (budget, dates, travelers) and gets **3 curated surprise bundles**. The destination stays secret until the airport; the hotel is revealed by the driver on the way there.
 
 > Built as a TypeScript monorepo. The deal engine and AI-agent layer run on **mock data** out of the box (no API keys needed), so you can run the whole product locally today.
