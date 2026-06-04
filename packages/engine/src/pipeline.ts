@@ -9,7 +9,7 @@ import type {
 } from "./types.ts";
 import { activeDestinations } from "./catalog.ts";
 import { filterCandidates } from "./filters.ts";
-import { mockProviders } from "./providers/mock.ts";
+import { getProviders } from "./providers/index.ts";
 import {
   DEFAULT_PRICING,
   priceBundle,
@@ -52,7 +52,7 @@ export async function runDealPipeline(
   params: TripParams,
   opts: RunOptions = {},
 ): Promise<RunResult> {
-  const providers = opts.providers ?? mockProviders;
+  const providers = opts.providers ?? getProviders();
   const pricing = opts.pricing ?? DEFAULT_PRICING;
   const catalog = opts.catalog ?? activeDestinations();
   const count = opts.count ?? 3;

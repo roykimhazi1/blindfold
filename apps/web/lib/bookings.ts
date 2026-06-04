@@ -1,5 +1,6 @@
 import type { ScoredOption, TripParams, SurpriseHints, RevealStage, RevealSchedule, PriceBreakdown } from "@sv/engine";
 import { buildSchedule, stageAt, stageRank, msToNextStage } from "@sv/engine";
+import { enqueueBookingEmails } from "@/lib/notify";
 
 // In-memory booking store. No database in the MVP — bookings live in a Map kept
 // on globalThis so they survive Next.js hot-reloads in dev. The secret (real
@@ -92,6 +93,21 @@ export function createBooking(
     demoStage: "booked",
   };
   store.set(booking.id, booking);
+
+  enqueueBookingEmails({
+    bookingId: booking.id,
+    to: contact.email,
+    name: contact.name,
+    packingTip: option.hints.packingTip,
+    climateBand: option.hints.climateBand,
+    departureIso: booking.departureIso,
+    nights: booking.nights,
+    travelers: booking.travelers,
+    priceTotal: booking.priceTotal,
+    currency: booking.currency,
+    teaserAtMs: schedule.teaserAt,
+  });
+
   return booking;
 }
 
