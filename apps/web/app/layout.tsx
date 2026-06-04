@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Plus_Jakarta_Sans, Inter } from "next/font/google";
 import "./globals.css";
 import { SiteNav } from "@/components/site-nav";
@@ -21,6 +21,20 @@ export const metadata: Metadata = {
   title: "Blindfold — Surprise Vacations",
   description:
     "Tell us your budget and dates. We hand you a whole trip to a place you won't see coming — flights, hotel, transfers, the lot. You just pack a bag.",
+  applicationName: "Blindfold",
+  appleWebApp: { capable: true, title: "Blindfold", statusBarStyle: "black-translucent" },
+  openGraph: {
+    title: "Blindfold — Surprise Vacations",
+    description: "Book a whole trip to a place you won't see coming. Just pack a bag.",
+    type: "website",
+  },
+};
+
+export const viewport: Viewport = {
+  themeColor: "#120d24",
+  width: "device-width",
+  initialScale: 1,
+  viewportFit: "cover",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
