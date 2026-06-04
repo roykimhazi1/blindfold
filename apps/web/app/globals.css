@@ -208,3 +208,30 @@
     transform: none;
   }
 }
+
+/* ── Scrollable strip helpers ───────────────────────────────────── */
+.scrollbar-hide {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}
+
+/* Vibe card hover lift */
+.vibe-card {
+  transition: transform 0.35s cubic-bezier(0.22, 1, 0.36, 1),
+              box-shadow 0.35s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.vibe-card:hover {
+  transform: translateY(-6px) scale(1.015);
+  box-shadow: 0 24px 48px rgba(0,0,0,0.5);
+}
+
+/* Mosaic photo hover zoom */
+.mosaic-photo .photo-bg {
+  transition: transform 0.6s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.mosaic-photo:hover .photo-bg {
+  transform: scale(1.06);
+}
