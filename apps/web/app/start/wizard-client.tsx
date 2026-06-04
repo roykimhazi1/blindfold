@@ -3,15 +3,60 @@
 import { useMemo, useState, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import type {
-  TripParams, Currency, PartyType, VibeType, Temperature, Board, SurpriseIntensity,
+  TripParams, Currency, PartyType, VibeType, Temperature, Pace, Board, SurpriseIntensity,
 } from "@sv/engine";
 import { encodeParams, CURRENCY_SYMBOL } from "@/lib/trip";
 import {
   Sparkles, Wallet, Calendar, Users, Umbrella, Building, Mountain, Wine, Landmark,
-  Sun, Snow, Globe, Lock, Plane, Plus, Minus, ArrowRight, Check,
+  Sun, Snow, Globe, Lock, Plane, Plus, Minus, ArrowRight, Check, Compass, Heart,
 } from "@/components/icons";
 
-type Mode = "express" | "full";
+// ── The agile path ───────────────────────────────────────────────────
+// The user's FIRST choice is how much they want to be surprised. That one
+// tap decides how many questions follow: more surprise → fewer questions.
+type Phase = "level" | "questions";
+type Level = "blackout" | "hint" | "steer";
+type StepId = "budget" | "dates" | "travelers" | "mood" | "hotel" | "limits";
+
+const LEVELS: {
+  id: Level; title: string; blurb: string; meta: string; Icon: typeof Lock; intensity: SurpriseIntensity;
+}[] = [
+  {
+    id: "blackout", title: "Total blackout", Icon: Lock, intensity: "full",
+    blurb: "Pack a bag and trust us. Everything's a secret until you're nearly there.",
+    meta: "3 quick questions",
+  },
+  {
+    id: "hint", title: "Drop me a hint", Icon: Sparkles, intensity: "full",
+    blurb: "Tell us the mood you're after. The where stays sealed till the airport.",
+    meta: "4 light questions",
+  },
+  {
+    id: "steer", title: "Let me steer", Icon: Compass, intensity: "region",
+    blurb: "Shape the stay and the flight — we'll even tell you the region.",
+    meta: "6 questions · region revealed",
+  },
+];
+
+const STEPS_BY_LEVEL: Record<Level, StepId[]> = {
+  blackout: ["budget", "dates", "travelers"],
+  hint: ["budget", "dates", "travelers", "mood"],
+  steer: ["budget", "dates", "travelers", "mood", "hotel", "limits"],
+};
+
+const STEP_DEF: Record<StepId, {
+  Icon: typeof Wallet; eyebrow: string; title: string; subtitle?: string; optional?: boolean;
+}> = {
+  budget: { Icon: Wallet, eyebrow: "The only number that matters", title: "What can you spend?" },
+  dates: { Icon: Calendar, eyebrow: "When can you slip away?", title: "Pick your window" },
+  travelers: { Icon: Users, eyebrow: "Who's in?", title: "Who's coming along?" },
+  mood: {
+    Icon: Sun, eyebrow: "Set the tone — optional", title: "What kind of trip?",
+    subtitle: "Tap whatever fits, or skip and we'll surprise you harder.", optional: true,
+  },
+  hotel: { Icon: Building, eyebrow: "Where you'll crash — optional", title: "Any hotel wishes?", optional: true },
+  limits: { Icon: Plane, eyebrow: "Ground rules — optional", title: "Anything to avoid?", optional: true },
+};
 
 const VIBES: { v: VibeType; label: string; Icon: typeof Umbrella }[] = [
   { v: "beach", label: "Beach", Icon: Umbrella },
@@ -21,83 +66,199 @@ const VIBES: { v: VibeType; label: string; Icon: typeof Umbrella }[] = [
   { v: "culture", label: "Culture", Icon: Landmark },
 ];
 
-const STEP_META: Record<string, { Icon: typeof Wallet; eyebrow: string }> = {
-  budget: { Icon: Wallet, eyebrow: "The only number that matters" },
-  dates: { Icon: Calendar, eyebrow: "When can you slip away?" },
-  travelers: { Icon: Users, eyebrow: "Who's in?" },
-  vibe: { Icon: Sun, eyebrow: "Set the mood (if you like)" },
-  hotel: { Icon: Building, eyebrow: "Where you'll rest your head" },
-  constraints: { Icon: Globe, eyebrow: "Any ground rules?" },
+// One-tap presets keep answering light — fine-tune underneath if you like.
+const BUDGET_PRESETS: Record<Currency, number[]> = {
+  ILS: [5000, 8000, 12000],
+  EUR: [1200, 2000, 3200],
+  USD: [1300, 2200, 3500],
 };
+const BUDGET_RANGE: Record<Currency, { min: number; max: number; step: number }> = {
+  ILS: { min: 2000, max: 25000, step: 100 },
+  EUR: { min: 500, max: 7000, step: 50 },
+  USD: { min: 500, max: 7500, step: 50 },
+};
+const PARTY_PRESETS: { label: string; adults: number; children: number; partyType: PartyType }[] = [
+  { label: "Just me", adults: 1, children: 0, partyType: "solo" },
+  { label: "Couple", adults: 2, children: 0, partyType: "couple" },
+  { label: "Family of 4", adults: 2, children: 2, partyType: "family" },
+  { label: "Friends", adults: 4, children: 0, partyType: "friends" },
+];
+
+const TODAY = "2026-06-04"; // matches the product's "now"; keeps SSR/hydration stable
+
+function fmtDate(d: string): string {
+  const t = Date.parse(d);
+  if (!Number.isFinite(t)) return "—";
+  return new Date(t).toLocaleDateString(undefined, { weekday: "short", day: "numeric", month: "short" });
+}
+function addDays(d: string, days: number): string {
+  const t = Date.parse(d);
+  if (!Number.isFinite(t)) return d;
+  return new Date(t + days * 86400000).toISOString().slice(0, 10);
+}
 
 export function WizardClient() {
   const router = useRouter();
-  const [mode, setMode] = useState<Mode>("express");
+  const [phase, setPhase] = useState<Phase>("level");
+  const [level, setLevel] = useState<Level>("blackout");
   const [step, setStep] = useState(0);
 
-  const [amount, setAmount] = useState(6500);
+  // Required
+  const [amount, setAmount] = useState(8000);
   const [currency, setCurrency] = useState<Currency>("ILS");
   const [perPerson, setPerPerson] = useState(false);
-  const [start, setStart] = useState("2026-07-10");
-  const [nights, setNights] = useState(4);
+  const [startDate, setStartDate] = useState("2026-07-10");
+  const [endDate, setEndDate] = useState("2026-07-14");
   const [flexible, setFlexible] = useState(true);
   const [adults, setAdults] = useState(2);
   const [children, setChildren] = useState(0);
   const [partyType, setPartyType] = useState<PartyType>("couple");
+
+  // Optional
   const [vibes, setVibes] = useState<VibeType[]>([]);
   const [temperature, setTemperature] = useState<Temperature>("any");
+  const [pace, setPace] = useState<Pace>("any");
   const [minStars, setMinStars] = useState(3);
   const [board, setBoard] = useState<Board>("breakfast");
   const [maxFlightHours, setMaxFlightHours] = useState<number | "">("");
-  const [intensity, setIntensity] = useState<SurpriseIntensity>("full");
 
-  const steps = useMemo(() => (mode === "express" ? EXPRESS_STEPS : FULL_STEPS), [mode]);
+  const activeLevel = LEVELS.find((l) => l.id === level)!;
+  const steps = STEPS_BY_LEVEL[level];
+  const currentId = steps[step]!;
+  const def = STEP_DEF[currentId];
   const isLast = step === steps.length - 1;
   const progress = Math.round(((step + 1) / steps.length) * 100);
 
+  const nights = useMemo(() => {
+    const a = Date.parse(startDate), b = Date.parse(endDate);
+    if (!Number.isFinite(a) || !Number.isFinite(b)) return 0;
+    return Math.round((b - a) / 86400000);
+  }, [startDate, endDate]);
+
+  const datesValid = nights >= 1;
+  const budgetValid = amount >= BUDGET_RANGE[currency].min;
+
+  function stepValid(id: StepId): boolean {
+    if (id === "budget") return budgetValid;
+    if (id === "dates") return datesValid;
+    if (id === "travelers") return adults >= 1;
+    return true; // optional steps are always satisfiable
+  }
+
+  function pickLevel(l: Level) {
+    setLevel(l);
+    setStep(0);
+    setPhase("questions");
+  }
+  function pickCurrency(c: Currency) {
+    setCurrency(c);
+    // Re-seat the amount into the new currency's sensible middle so the
+    // slider/number never reads as nonsense after a switch.
+    setAmount(BUDGET_PRESETS[c][1]!);
+  }
+  function setStart(d: string) {
+    setStartDate(d);
+    // Keep the window valid: if the return is now on/before departure, nudge it.
+    if (Date.parse(endDate) <= Date.parse(d)) setEndDate(addDays(d, Math.max(1, nights || 4)));
+  }
+
   function buildParams(): TripParams {
+    const wantsMood = level !== "blackout";
+    const wantsDetail = level === "steer";
     return {
       budget: { amount, currency, perPerson },
-      dates: { mode: flexible ? "flexible" : "exact", start, nights, flexDays: flexible ? 3 : undefined },
+      dates: { mode: flexible ? "flexible" : "exact", start: startDate, nights, flexDays: flexible ? 3 : undefined },
       travelers: { adults, childrenAges: Array.from({ length: children }, () => 8), partyType },
       departureAirport: "TLV",
-      vibe: mode === "full" && (vibes.length || temperature !== "any") ? { types: vibes, temperature, pace: "any" } : undefined,
-      hotel: mode === "full" ? { minStars, board, roomType: "double" } : undefined,
-      constraints: mode === "full"
+      vibe: wantsMood && (vibes.length || temperature !== "any" || pace !== "any")
+        ? { types: vibes, temperature, pace } : undefined,
+      hotel: wantsDetail ? { minStars, board, roomType: "double" } : undefined,
+      constraints: wantsDetail
         ? { nationality: "IL", maxFlightHours: maxFlightHours === "" ? undefined : Number(maxFlightHours) }
         : { nationality: "IL" },
-      surpriseIntensity: intensity,
+      surpriseIntensity: activeLevel.intensity,
     };
   }
 
   function next() {
+    if (!stepValid(currentId)) return;
     if (isLast) router.push(`/results?p=${encodeParams(buildParams())}`);
     else setStep((s) => s + 1);
   }
+  function skip() {
+    if (!isLast) setStep((s) => s + 1);
+  }
   function back() {
-    setStep((s) => Math.max(0, s - 1));
+    if (step === 0) setPhase("level");
+    else setStep((s) => s - 1);
   }
 
-  const current = steps[step]!;
-  const meta = STEP_META[current.id]!;
+  // ── Opening: choose your level of surprise ─────────────────────────
+  if (phase === "level") {
+    return (
+      <div className="animate-pop">
+        <div className="mb-7 text-center">
+          <div className="inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs text-brand-200">
+            <Sparkles size={13} /> Step one
+          </div>
+          <h1 className="mt-4 font-display text-3xl font-bold leading-tight sm:text-4xl">
+            How surprised do you<br className="hidden sm:block" /> want to be?
+          </h1>
+          <p className="mx-auto mt-3 max-w-md text-sm text-white/60">
+            Pick a vibe and we'll keep the questions short. The braver you are, the less we ask.
+          </p>
+        </div>
 
+        <div className="space-y-3">
+          {LEVELS.map((l) => (
+            <button
+              key={l.id}
+              onClick={() => pickLevel(l.id)}
+              className="group flex w-full items-center gap-4 rounded-3xl border border-white/10 bg-white/[0.04] p-5 text-left backdrop-blur-xl transition-all duration-200 hover:-translate-y-0.5 hover:border-brand-400/60 hover:bg-white/[0.07] hover:shadow-xl hover:shadow-brand-500/10 active:scale-[0.99]"
+            >
+              <span className="grid h-12 w-12 shrink-0 place-items-center rounded-2xl bg-gradient-to-br from-brand-500/30 to-violet-500/30 text-brand-200 ring-1 ring-white/10">
+                <l.Icon size={24} />
+              </span>
+              <span className="min-w-0 flex-1">
+                <span className="flex items-center gap-2">
+                  <span className="font-display text-lg font-bold">{l.title}</span>
+                </span>
+                <span className="mt-0.5 block text-sm text-white/60">{l.blurb}</span>
+                <span className="mt-2 inline-flex items-center gap-1.5 rounded-full bg-white/5 px-2.5 py-0.5 text-[11px] font-medium uppercase tracking-wide text-white/55">
+                  {l.meta}
+                </span>
+              </span>
+              <ArrowRight size={20} className="shrink-0 text-white/30 transition group-hover:translate-x-1 group-hover:text-brand-300" />
+            </button>
+          ))}
+        </div>
+
+        <p className="mt-6 text-center text-xs text-white/40">
+          <Check size={13} className="mr-1 inline text-mint-400" />
+          Change your mind anytime — nothing's booked until you see the price.
+        </p>
+      </div>
+    );
+  }
+
+  // ── Questions ──────────────────────────────────────────────────────
   return (
     <div>
-      {/* mode toggle */}
-      <div className="mb-6 flex items-center justify-center">
-        <div className="inline-flex rounded-full border border-white/10 bg-white/5 p-1 text-sm">
-          <ModePill active={mode === "express"} onClick={() => { setMode("express"); setStep(0); }}>
-            <Sparkles size={15} /> Quick
-          </ModePill>
-          <ModePill active={mode === "full"} onClick={() => { setMode("full"); setStep(0); }}>
-            <Globe size={15} /> Fine-tune
-          </ModePill>
-        </div>
+      {/* chosen level, editable */}
+      <div className="mb-3 flex justify-center">
+        <button
+          onClick={() => setPhase("level")}
+          className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-xs text-white/70 transition hover:border-white/25 hover:text-white"
+        >
+          <activeLevel.Icon size={14} className="text-brand-300" />
+          {activeLevel.title}
+          <span className="text-white/35">· change</span>
+        </button>
       </div>
 
       {/* progress */}
       <div className="mb-2 flex items-center justify-between text-xs text-white/45">
-        <span>Step {step + 1} of {steps.length}</span>
+        <span>Question {step + 1} of {steps.length}</span>
         <span>{progress}%</span>
       </div>
       <div className="mb-6 h-2 w-full overflow-hidden rounded-full bg-white/10">
@@ -105,62 +266,94 @@ export function WizardClient() {
       </div>
 
       <div className="card overflow-hidden p-7">
-        {/* Keyed wrapper → content pops/morphs on each step change */}
-        <div key={`${mode}-${step}`} className="animate-pop">
+        <div key={`${level}-${step}`} className="animate-pop">
           <div className="flex items-center gap-3">
             <span className="grid h-11 w-11 place-items-center rounded-2xl bg-gradient-to-br from-brand-500/30 to-violet-500/30 text-brand-200 ring-1 ring-white/10">
-              <meta.Icon size={22} />
+              <def.Icon size={22} />
             </span>
             <div>
-              <div className="text-xs font-medium uppercase tracking-wide text-brand-300">{meta.eyebrow}</div>
-              <h2 className="font-display text-2xl font-bold leading-tight">{current.title}</h2>
+              <div className="text-xs font-medium uppercase tracking-wide text-brand-300">{def.eyebrow}</div>
+              <h2 className="font-display text-2xl font-bold leading-tight">{def.title}</h2>
             </div>
           </div>
-          {current.subtitle && <p className="mt-3 text-sm text-white/60">{current.subtitle}</p>}
+          {def.subtitle && <p className="mt-3 text-sm text-white/60">{def.subtitle}</p>}
 
           <div className="mt-6">
-            {current.id === "budget" && (
+            {currentId === "budget" && (
               <div className="space-y-5">
                 <div className="flex items-end gap-3">
                   <div className="flex-1">
                     <label className="text-sm text-white/60">All-in budget</label>
                     <div className="mt-1 flex items-center rounded-2xl border border-white/15 bg-white/5 px-4 py-3 text-2xl font-bold focus-within:border-brand-400">
                       <span className="mr-1 text-white/50">{CURRENCY_SYMBOL[currency]}</span>
-                      <input type="number" value={amount} min={500} step={100}
+                      <input type="number" value={amount} min={BUDGET_RANGE[currency].min} step={BUDGET_RANGE[currency].step}
                         onChange={(e) => setAmount(Number(e.target.value))}
                         className="tabnum w-full bg-transparent outline-none" aria-label="Budget amount" />
                     </div>
                   </div>
-                  <select value={currency} onChange={(e) => setCurrency(e.target.value as Currency)}
+                  <select value={currency} onChange={(e) => pickCurrency(e.target.value as Currency)}
                     className="rounded-2xl border border-white/15 bg-ink-800 px-3 py-3.5" aria-label="Currency">
                     <option value="ILS">ILS</option><option value="EUR">EUR</option><option value="USD">USD</option>
                   </select>
                 </div>
-                <input type="range" min={1500} max={20000} step={100} value={amount}
-                  onChange={(e) => setAmount(Number(e.target.value))} className="w-full accent-brand-500" aria-label="Budget slider" />
+                <div className="flex gap-2">
+                  {BUDGET_PRESETS[currency].map((p) => (
+                    <Chip key={p} active={amount === p} onClick={() => setAmount(p)}>
+                      {CURRENCY_SYMBOL[currency]}{p.toLocaleString()}
+                    </Chip>
+                  ))}
+                </div>
+                <input type="range" min={BUDGET_RANGE[currency].min} max={BUDGET_RANGE[currency].max} step={BUDGET_RANGE[currency].step}
+                  value={Math.min(amount, BUDGET_RANGE[currency].max)} onChange={(e) => setAmount(Number(e.target.value))}
+                  className="w-full accent-brand-500" aria-label="Budget slider" />
                 <Toggle label="That's per person, not total" value={perPerson} onChange={setPerPerson} />
+                {!budgetValid && (
+                  <p className="text-xs text-brand-300">Pop in at least {CURRENCY_SYMBOL[currency]}{BUDGET_RANGE[currency].min.toLocaleString()} so we have something to work with.</p>
+                )}
                 <p className="text-xs text-white/45">Everything fits inside this — flights, hotel, the ride, the fun. No nasty extras at the end.</p>
               </div>
             )}
 
-            {current.id === "dates" && (
+            {currentId === "dates" && (
               <div className="space-y-5">
-                <div>
-                  <label className="text-sm text-white/60">Roughly when?</label>
-                  <input type="date" value={start} onChange={(e) => setStart(e.target.value)}
-                    className="mt-1 w-full rounded-2xl border border-white/15 bg-white/5 px-4 py-3 focus:border-brand-400 outline-none" />
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="text-sm text-white/60">From</label>
+                    <input type="date" value={startDate} min={TODAY} onChange={(e) => setStart(e.target.value)}
+                      className="mt-1 w-full rounded-2xl border border-white/15 bg-white/5 px-4 py-3 outline-none focus:border-brand-400" aria-label="Departure date" />
+                  </div>
+                  <div>
+                    <label className="text-sm text-white/60">Until</label>
+                    <input type="date" value={endDate} min={addDays(startDate, 1)} onChange={(e) => setEndDate(e.target.value)}
+                      className="mt-1 w-full rounded-2xl border border-white/15 bg-white/5 px-4 py-3 outline-none focus:border-brand-400" aria-label="Return date" />
+                  </div>
                 </div>
-                <div>
-                  <label className="text-sm text-white/60">How many nights? <span className="tabnum text-white">({nights})</span></label>
-                  <input type="range" min={2} max={14} value={nights} onChange={(e) => setNights(Number(e.target.value))}
-                    className="mt-2 w-full accent-brand-500" />
-                </div>
-                <Toggle label="I'm flexible by a few days (cheaper!)" value={flexible} onChange={setFlexible} />
+                {datesValid ? (
+                  <div className="flex items-center justify-center gap-2 rounded-2xl border border-white/10 bg-white/5 px-4 py-2.5 text-sm text-white/75">
+                    <Calendar size={15} className="text-brand-300" />
+                    <span className="tabnum font-semibold text-white">{nights}</span> {nights === 1 ? "night" : "nights"}
+                    <span className="text-white/35">·</span>
+                    {fmtDate(startDate)} → {fmtDate(endDate)}
+                  </div>
+                ) : (
+                  <p className="text-center text-xs text-brand-300">Your return needs to land after you leave — give us at least one night.</p>
+                )}
+                <Toggle label="My dates can flex by a few days (often cheaper!)" value={flexible} onChange={setFlexible} />
               </div>
             )}
 
-            {current.id === "travelers" && (
+            {currentId === "travelers" && (
               <div className="space-y-5">
+                <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+                  {PARTY_PRESETS.map((p) => {
+                    const active = adults === p.adults && children === p.children && partyType === p.partyType;
+                    return (
+                      <Chip key={p.label} active={active} onClick={() => { setAdults(p.adults); setChildren(p.children); setPartyType(p.partyType); }}>
+                        {p.label}
+                      </Chip>
+                    );
+                  })}
+                </div>
                 <Stepper label="Adults" value={adults} min={1} onChange={setAdults} />
                 <Stepper label="Children" value={children} min={0} onChange={setChildren} />
                 <div>
@@ -174,7 +367,7 @@ export function WizardClient() {
               </div>
             )}
 
-            {current.id === "vibe" && (
+            {currentId === "mood" && (
               <div className="space-y-5">
                 <div>
                   <label className="text-sm text-white/60">What are you in the mood for?</label>
@@ -191,19 +384,29 @@ export function WizardClient() {
                   <label className="text-sm text-white/60">Warm or cold?</label>
                   <div className="mt-2 grid grid-cols-3 gap-2">
                     <Chip active={temperature === "warm"} onClick={() => setTemperature("warm")}><Sun size={16} /> Warm</Chip>
-                    <Chip active={temperature === "any"} onClick={() => setTemperature("any")}><Globe size={16} /> Surprise me</Chip>
+                    <Chip active={temperature === "any"} onClick={() => setTemperature("any")}><Globe size={16} /> Either</Chip>
                     <Chip active={temperature === "cold"} onClick={() => setTemperature("cold")}><Snow size={16} /> Cold</Chip>
                   </div>
                 </div>
+                {level === "steer" && (
+                  <div>
+                    <label className="text-sm text-white/60">What's the pace?</label>
+                    <div className="mt-2 grid grid-cols-3 gap-2">
+                      <Chip active={pace === "chill"} onClick={() => setPace("chill")}><Umbrella size={16} /> Chill</Chip>
+                      <Chip active={pace === "any"} onClick={() => setPace("any")}><Globe size={16} /> Either</Chip>
+                      <Chip active={pace === "active"} onClick={() => setPace("active")}><Mountain size={16} /> Active</Chip>
+                    </div>
+                  </div>
+                )}
               </div>
             )}
 
-            {current.id === "hotel" && (
+            {currentId === "hotel" && (
               <div className="space-y-5">
                 <div>
                   <label className="text-sm text-white/60">At least how many stars? <span className="tabnum text-white">({minStars}★)</span></label>
                   <input type="range" min={1} max={5} value={minStars} onChange={(e) => setMinStars(Number(e.target.value))}
-                    className="mt-2 w-full accent-brand-500" />
+                    className="mt-2 w-full accent-brand-500" aria-label="Minimum hotel stars" />
                 </div>
                 <div>
                   <label className="text-sm text-white/60">Meals?</label>
@@ -216,7 +419,7 @@ export function WizardClient() {
               </div>
             )}
 
-            {current.id === "constraints" && (
+            {currentId === "limits" && (
               <div className="space-y-5">
                 <div>
                   <label className="text-sm text-white/60">Longest flight you'll sit through?</label>
@@ -228,26 +431,31 @@ export function WizardClient() {
                     )}
                   </div>
                 </div>
-                <div>
-                  <label className="text-sm text-white/60">How much do you want to know?</label>
-                  <div className="mt-2 grid grid-cols-2 gap-2">
-                    <Chip active={intensity === "full"} onClick={() => setIntensity("full")}><Lock size={16} /> Total mystery</Chip>
-                    <Chip active={intensity === "region"} onClick={() => setIntensity("region")}><Globe size={16} /> Tell me the region</Chip>
-                  </div>
-                </div>
+                <p className="flex items-center gap-2 text-xs text-white/45">
+                  <Heart size={13} className="text-brand-300" />
+                  That's everything — hit the button and we'll go hunting.
+                </p>
               </div>
             )}
           </div>
         </div>
 
-        <div className="mt-8 flex items-center justify-between">
-          <button onClick={back} disabled={step === 0}
-            className="rounded-full px-4 py-2 text-sm text-white/55 transition hover:text-white disabled:opacity-30">
+        <div className="mt-8 flex items-center justify-between gap-3">
+          <button onClick={back}
+            className="rounded-full px-4 py-2 text-sm text-white/55 transition hover:text-white">
             ← Back
           </button>
-          <button onClick={next} className="btn-primary">
-            {isLast ? <>Find my surprises <Sparkles size={18} /></> : <>Continue <ArrowRight size={18} /></>}
-          </button>
+          <div className="flex items-center gap-2">
+            {def.optional && !isLast && (
+              <button onClick={skip} className="rounded-full px-4 py-2 text-sm text-white/55 transition hover:text-white">
+                Skip
+              </button>
+            )}
+            <button onClick={next} disabled={!stepValid(currentId)}
+              className="btn-primary disabled:pointer-events-none disabled:opacity-40">
+              {isLast ? <>Find my surprises <Sparkles size={18} /></> : <>Continue <ArrowRight size={18} /></>}
+            </button>
+          </div>
         </div>
       </div>
 
@@ -256,30 +464,6 @@ export function WizardClient() {
         Nothing's booked yet — you'll see prices before you commit.
       </p>
     </div>
-  );
-}
-
-type Step = { id: string; title: string; subtitle?: string };
-const EXPRESS_STEPS: Step[] = [
-  { id: "budget", title: "What can you spend?" },
-  { id: "dates", title: "When are you free?" },
-  { id: "travelers", title: "Who's coming along?" },
-];
-const FULL_STEPS: Step[] = [
-  { id: "budget", title: "What can you spend?" },
-  { id: "dates", title: "When are you free?" },
-  { id: "travelers", title: "Who's coming along?" },
-  { id: "vibe", title: "Pick a vibe", subtitle: "Skip it all and we'll surprise you harder." },
-  { id: "hotel", title: "Hotel wishes", subtitle: "Optional." },
-  { id: "constraints", title: "The fine print", subtitle: "Optional." },
-];
-
-function ModePill({ active, onClick, children }: { active: boolean; onClick: () => void; children: ReactNode }) {
-  return (
-    <button onClick={onClick}
-      className={`inline-flex items-center gap-1.5 rounded-full px-4 py-1.5 transition ${active ? "bg-white/15 text-white" : "text-white/55 hover:text-white"}`}>
-      {children}
-    </button>
   );
 }
 
@@ -299,7 +483,7 @@ function Toggle({ label, value, onChange }: { label: string; value: boolean; onC
     <button onClick={() => onChange(!value)} role="switch" aria-checked={value}
       className="flex w-full items-center justify-between rounded-2xl border border-white/15 bg-white/5 px-4 py-3 text-left transition hover:border-white/25">
       <span className="text-sm text-white/80">{label}</span>
-      <span className={`relative h-6 w-11 rounded-full transition-colors ${value ? "bg-brand-500" : "bg-white/20"}`}>
+      <span className={`relative h-6 w-11 shrink-0 rounded-full transition-colors ${value ? "bg-brand-500" : "bg-white/20"}`}>
         <span className={`absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition-all duration-200 ${value ? "left-[22px]" : "left-0.5"}`} />
       </span>
     </button>
