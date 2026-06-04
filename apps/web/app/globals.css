@@ -136,6 +136,64 @@
   transition: opacity 0.6s ease, transform 0.6s ease;
 }
 
+/* ── Warm "light mode" surface (homepage) ───────────────────────── */
+/* A soft, sunlit aurora — same animated mesh as the dark hero, retuned to
+   glow gently on the ivory canvas (no screen blend, lower opacity). */
+.aurora-light {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+}
+.aurora-light::before {
+  content: "";
+  position: absolute;
+  inset: -25%;
+  z-index: -2;
+  background:
+    radial-gradient(40% 45% at 82% 6%, rgba(244, 63, 94, 0.18), transparent 60%),
+    radial-gradient(38% 42% at 8% 12%, rgba(139, 92, 246, 0.16), transparent 60%),
+    radial-gradient(55% 55% at 50% 104%, rgba(251, 191, 36, 0.22), transparent 62%),
+    radial-gradient(45% 45% at 90% 84%, rgba(45, 212, 191, 0.12), transparent 60%);
+  background-size: 200% 200%;
+  animation: gradientPan 18s ease infinite;
+}
+
+@layer components {
+  /* Crisp white cards that lift off the ivory page with a soft warm shadow. */
+  .card-light {
+    @apply rounded-3xl border border-plum/10 bg-white/75 backdrop-blur-xl
+           shadow-[0_18px_50px_-24px_rgba(42,33,64,0.45)];
+  }
+  .glass-light {
+    @apply border border-white/70 bg-white/80 backdrop-blur-xl
+           shadow-[0_18px_45px_-18px_rgba(42,33,64,0.4)];
+  }
+  /* Secondary button tuned for the ivory canvas (the dark .btn-ghost vanishes there). */
+  .btn-ghost-light {
+    @apply inline-flex items-center justify-center gap-2 rounded-full px-7 py-3.5
+           font-semibold text-plum/80 transition-all duration-200
+           border border-plum/15 hover:bg-plum/5 hover:text-plum active:scale-[0.98];
+  }
+  /* Small pill used for labels/chips on the light page. */
+  .chip-light {
+    @apply inline-flex items-center gap-1.5 rounded-full border border-plum/10
+           bg-white/70 px-3 py-1 text-xs text-plum/75;
+  }
+}
+
+/* Richer headline gradient that stays legible on the ivory canvas. */
+.text-gradient-bright {
+  background: linear-gradient(100deg, #f43f5e, #ea8a00 48%, #8b5cf6);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+/* Warm fallback so a slow/blocked photo shows sunlit ivory, not dark. */
+.photo-warm {
+  background: linear-gradient(135deg, #ffe9d2, #f6ddc2 60%, #efe6d4);
+}
+
 /* ── Respect reduced-motion (a11y) ──────────────────────────────── */
 @media (prefers-reduced-motion: reduce) {
   *,
