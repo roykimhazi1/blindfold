@@ -11,8 +11,8 @@ export default async function AgentRunsPage() {
   const { deals, traces, diagnostics } = await orchestrateDeals(exampleParams());
 
   return (
-    <div className="mx-auto max-w-4xl px-5 py-14">
-      <h1 className="text-2xl font-bold">Agent runs</h1>
+    <div>
+      <h1 className="font-display text-2xl font-bold">Agent runs</h1>
       <p className="mt-1 text-sm text-white/60">
         Sample orchestration · mode: <span className="text-brand-300">{traces[0]?.mode}</span> ·{" "}
         {diagnostics.candidates} candidates → {deals.length} deals · {diagnostics.totalMs}ms
