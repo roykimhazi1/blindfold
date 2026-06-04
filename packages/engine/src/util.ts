@@ -41,3 +41,18 @@ export function monthIndexFromIso(iso: string): number {
 export function partySize(adults: number, childrenAges: number[]): number {
   return adults + childrenAges.length;
 }
+
+/** Hour-of-day (0..23) from an ISO datetime like "2026-07-10T06:40:00". */
+export function hourFromIso(iso: string): number {
+  const h = Number(iso.slice(11, 13));
+  return Number.isFinite(h) ? h : 12;
+}
+
+/**
+ * A flight is a "red-eye" if it leaves very early (before 06:00) or the return
+ * lands you home late at night (departs 23:00 or later). Used to honor the
+ * traveler's "no harsh red-eyes" preference.
+ */
+export function isRedeye(outboundDepartIso: string, inboundDepartIso: string): boolean {
+  return hourFromIso(outboundDepartIso) < 6 || hourFromIso(inboundDepartIso) >= 23;
+}

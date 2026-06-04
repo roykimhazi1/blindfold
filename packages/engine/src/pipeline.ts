@@ -19,7 +19,7 @@ import {
 } from "./pricing.ts";
 import { scoreOption, selectDiverse } from "./scoring.ts";
 import { buildHints, assertNoLeaks } from "./hints.ts";
-import { partySize, hashString } from "./util.ts";
+import { partySize, hashString, isRedeye } from "./util.ts";
 
 export interface RunOptions {
   providers?: Providers;
@@ -74,6 +74,12 @@ export async function runDealPipeline(
         providers.attractions.quote(dest, params),
       ]);
       if (!flight || !hotel || !transfer || !attractions) return;
+
+      // Honor "no harsh red-eyes". (directOnly needs no work here — every mock
+      // flight is a single non-stop leg, so it's already direct; the flag is
+      // reserved for live, multi-leg providers.)
+      if (params.constraints?.avoidRedeye &&
+          isRedeye(flight.outboundDepartIso, flight.inboundDepartIso)) return;
 
       const components: PricedComponents = { flight, hotel, transfer, attractions };
       const breakdown = priceBundle(components, pricing);
