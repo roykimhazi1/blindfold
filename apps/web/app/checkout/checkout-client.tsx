@@ -19,11 +19,11 @@ export function CheckoutClient() {
   const [email, setEmail] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [confirm, setConfirm] = useState<{ newTotal: number } | null>(null);
 
   const ready = name.trim().length > 1 && /\S+@\S+\.\S+/.test(email);
 
-  async function submit(e: React.FormEvent) {
-    e.preventDefault();
+  async function book(confirmChange: boolean) {
     if (!ready || busy) return;
     setBusy(true);
     setError(null);
@@ -31,15 +31,32 @@ export function CheckoutClient() {
       const res = await fetch("/api/book", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ p, dealId, contact: { name, email } }),
+        body: JSON.stringify({
+          p,
+          dealId,
+          contact: { name, email },
+          shownTotal: confirmChange ? confirm?.newTotal ?? price : price,
+          confirmPriceChange: confirmChange,
+        }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Something went wrong");
+      // The live price drifted — confirm the new total before charging.
+      if (data.priceChanged) {
+        setConfirm({ newTotal: data.newTotal });
+        setBusy(false);
+        return;
+      }
       router.push(`/trip/${data.id}`);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Something went wrong");
       setBusy(false);
     }
+  }
+
+  function onSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    book(false);
   }
 
   if (!dealId || !p) {
@@ -62,7 +79,7 @@ export function CheckoutClient() {
         <p className="mt-2 text-white/65">Last step. Then the fun part — waiting to find out where.</p>
       </div>
 
-      <form onSubmit={submit} className="card mt-8 space-y-4 p-6">
+      <form onSubmit={onSubmit} className="card mt-8 space-y-4 p-6">
         <div>
           <label htmlFor="name" className="text-sm text-white/60">Who's the trip under?</label>
           <input id="name" value={name} onChange={(e) => setName(e.target.value)} autoComplete="name"
@@ -80,6 +97,16 @@ export function CheckoutClient() {
           <span className="text-sm text-white/70">All-in total</span>
           <span className="tabnum font-display text-2xl font-extrabold">{sym}{Math.round(price).toLocaleString()}</span>
         </div>
+
+        {confirm && (
+          <div className="rounded-xl bg-amber-500/15 px-3 py-2.5 text-sm text-amber-100" role="alert">
+            The price moved to <span className="tabnum font-semibold">{sym}{Math.round(confirm.newTotal).toLocaleString()}</span> since you picked it — availability shifts in real time.
+            <button type="button" onClick={() => book(true)} disabled={busy}
+              className="mt-2 block w-full rounded-xl bg-amber-400/90 px-3 py-2 font-semibold text-black transition hover:bg-amber-300 disabled:opacity-50">
+              {busy ? "Locking it in…" : `Continue at ${sym}${Math.round(confirm.newTotal).toLocaleString()}`}
+            </button>
+          </div>
+        )}
 
         {error && <p className="rounded-xl bg-rose-500/15 px-3 py-2 text-sm text-rose-200" role="alert">{error}</p>}
 
