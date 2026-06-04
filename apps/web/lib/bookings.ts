@@ -1,6 +1,6 @@
 import type { ScoredOption, TripParams, SurpriseHints, RevealStage, RevealSchedule, PriceBreakdown } from "@sv/engine";
 import { buildSchedule, stageAt, stageRank, msToNextStage } from "@sv/engine";
-import { enqueueBookingEmails } from "@/lib/notify";
+import { enqueueBookingEmails, enqueueRefundEmail } from "@/lib/notify";
 
 // In-memory booking store. No database in the MVP — bookings live in a Map kept
 // on globalThis so they survive Next.js hot-reloads in dev. The secret (real
@@ -40,6 +40,10 @@ export interface Booking {
   breakdownEur: PriceBreakdown;
   /** Furthest stage the user has fast-forwarded to in the demo clock. */
   demoStage: RevealStage;
+  status: "confirmed" | "cancelled";
+  /** Amount refunded (display currency) when cancelled. */
+  refunded?: number;
+  cancelledAtIso?: string;
 }
 
 type Store = Map<string, Booking>;
@@ -91,6 +95,7 @@ export function createBooking(
     schedule,
     breakdownEur: option.breakdown,
     demoStage: "booked",
+    status: "confirmed",
   };
   store.set(booking.id, booking);
 
@@ -118,6 +123,26 @@ export function getBooking(id: string): Booking | undefined {
 /** All bookings, newest first — for the admin console. */
 export function listBookings(): Booking[] {
   return [...store.values()].sort((a, b) => b.createdAtIso.localeCompare(a.createdAtIso));
+}
+
+/**
+ * Cancel a booking and refund it in full — the MVP policy ("change your mind
+ * anytime before we lock it in"). Idempotent: re-cancelling is a no-op.
+ */
+export function cancelBooking(id: string): Booking | undefined {
+  const b = store.get(id);
+  if (!b) return undefined;
+  if (b.status === "cancelled") return b;
+  b.status = "cancelled";
+  b.refunded = b.priceTotal; // full refund
+  b.cancelledAtIso = new Date().toISOString();
+  enqueueRefundEmail({
+    to: b.contact.email,
+    name: b.contact.name,
+    amount: b.priceTotal,
+    currency: b.currency,
+  });
+  return b;
 }
 
 /** Advance the demo clock to (at least) `stage`. Real bookings unlock by time. */

@@ -16,6 +16,8 @@ export interface TripView {
   includes: string[];
   hints: SurpriseHints;
   contactName: string;
+  status: "confirmed" | "cancelled";
+  refunded?: number;
   msToNext: number | null;
   schedule: { teaserAt: number; gateAt: number; arrivalAt: number; completeAt: number };
   // Revealed at "gate" and later:
@@ -39,6 +41,8 @@ export function toTripView(b: Booking, nowMs = Date.now()): TripView {
     includes: b.includes,
     hints: b.hints,
     contactName: b.contact.name,
+    status: b.status,
+    refunded: b.refunded,
     msToNext: msToNext(b, nowMs),
     schedule: {
       teaserAt: b.schedule.teaserAt,

@@ -11,8 +11,9 @@ const eur = (n: number) => "€" + Math.round(n).toLocaleString();
 
 export default function AdminDashboard() {
   const bookings = listBookings();
-  const gross = bookings.reduce((s, b) => s + b.breakdownEur.total, 0);
-  const profit = bookings.reduce((s, b) => s + b.breakdownEur.margin + b.breakdownEur.serviceFee, 0);
+  const active = bookings.filter((b) => b.status === "confirmed");
+  const gross = active.reduce((s, b) => s + b.breakdownEur.total, 0);
+  const profit = active.reduce((s, b) => s + b.breakdownEur.margin + b.breakdownEur.serviceFee, 0);
   const avgMarginPct = gross > 0 ? Math.round((profit / gross) * 100) : 0;
   const revealed = bookings.filter((b) => stageAtLeast(b.demoStage, "gate")).length;
 
@@ -67,7 +68,7 @@ export default function AdminDashboard() {
                 <tr key={b.id} className="border-t border-white/5">
                   <td className="px-4 py-3">{b.contact.name}</td>
                   <td className="px-4 py-3 text-white/70">{b.secret.city}, {b.secret.country}</td>
-                  <td className="px-4 py-3"><StageBadge stage={b.demoStage} /></td>
+                  <td className="px-4 py-3">{b.status === "cancelled" ? <span className="rounded-full bg-rose-500/20 px-2 py-0.5 text-xs text-rose-300">cancelled</span> : <StageBadge stage={b.demoStage} />}</td>
                   <td className="tabnum px-4 py-3 text-right">{eur(b.breakdownEur.total)}</td>
                   <td className="tabnum px-4 py-3 text-right text-mint-300">{eur(b.breakdownEur.margin + b.breakdownEur.serviceFee)}</td>
                 </tr>
