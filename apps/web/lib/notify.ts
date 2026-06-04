@@ -5,7 +5,7 @@ import { CURRENCY_SYMBOL } from "@/lib/trip";
 // they're inspectable in /admin/outbox. A real Resend/Postmark adapter swaps in
 // behind enqueue() later. Every body here is leak-safe — never names the place.
 
-export type EmailKind = "confirmation" | "teaser";
+export type EmailKind = "confirmation" | "teaser" | "refund";
 
 export interface OutboxEntry {
   id: string;
@@ -72,6 +72,25 @@ export function enqueueBookingEmails(i: BookingEmailInput): void {
       `${i.packingTip}\n\n` +
       `(It's going to be ${i.climateBand}.)\n\n` +
       `See you soon-ish, somewhere nice.\n— Blindfold`,
+  });
+}
+
+export function enqueueRefundEmail(i: { to: string; name: string; amount: number; currency: string }): void {
+  const sym = CURRENCY_SYMBOL[i.currency] ?? "";
+  const first = i.name.split(" ")[0] || "there";
+  const now = new Date().toISOString();
+  push({
+    to: i.to,
+    kind: "refund",
+    status: "sent",
+    scheduledForIso: now,
+    createdAtIso: now,
+    subject: "Refund on its way — no hard feelings 💛",
+    body:
+      `Hi ${first},\n\n` +
+      `Your surprise trip is cancelled and we've refunded ${sym}${Math.round(i.amount).toLocaleString()} ` +
+      `in full — every last bit.\n\n` +
+      `The unknown will still be here when you're ready. Whenever that is.\n— Blindfold`,
   });
 }
 

@@ -45,7 +45,9 @@ export default function AdminBookings() {
                   <td className="px-4 py-3 text-white/60">{b.secret.hotelName}</td>
                   <td className="px-4 py-3 text-white/60">{fmtDate(b.departureIso)} · {b.nights}n</td>
                   <td className="px-4 py-3">
-                    <span className={`rounded-full px-2 py-0.5 text-xs capitalize ${b.demoStage === "booked" ? "bg-white/10 text-white/70" : "bg-emerald-500/20 text-emerald-300"}`}>{b.demoStage}</span>
+                    {b.status === "cancelled"
+                      ? <span className="rounded-full bg-rose-500/20 px-2 py-0.5 text-xs text-rose-300">cancelled</span>
+                      : <span className={`rounded-full px-2 py-0.5 text-xs capitalize ${b.demoStage === "booked" ? "bg-white/10 text-white/70" : "bg-emerald-500/20 text-emerald-300"}`}>{b.demoStage}</span>}
                   </td>
                   <td className="tabnum px-4 py-3 text-right">{eur(b.breakdownEur.total)}</td>
                   <td className="tabnum px-4 py-3 text-right text-mint-300">{eur(b.breakdownEur.margin + b.breakdownEur.serviceFee)}</td>

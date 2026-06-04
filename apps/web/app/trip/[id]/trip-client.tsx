@@ -20,6 +20,8 @@ export function TripClient({ initial }: { initial: TripView }) {
   const [view, setView] = useState<TripView>(initial);
   const [busy, setBusy] = useState<RevealStage | null>(null);
   const [reveal, setReveal] = useState(false); // sealed-reveal overlay
+  const [cancelBusy, setCancelBusy] = useState(false);
+  const [confirmCancel, setConfirmCancel] = useState(false);
   const hadDestination = useRef(!!initial.destination);
   const sym = CURRENCY_SYMBOL[view.currency] ?? "";
 
@@ -45,29 +47,48 @@ export function TripClient({ initial }: { initial: TripView }) {
 
   const stage = view.stage;
   const departed = stageAtLeast(stage, "gate");
+  const cancelled = view.status === "cancelled";
+
+  async function cancel() {
+    if (cancelBusy) return;
+    setCancelBusy(true);
+    try {
+      const res = await fetch(`/api/trip/${view.id}/cancel`, { method: "POST" });
+      const next: TripView = await res.json();
+      if (res.ok) { setView(next); setConfirmCancel(false); }
+    } finally {
+      setCancelBusy(false);
+    }
+  }
 
   return (
     <div className="mx-auto max-w-2xl px-5 py-12">
-      {reveal && view.destination && (
+      {reveal && view.destination && !cancelled && (
         <RevealOverlay city={view.destination.city} country={view.destination.country} onClose={() => setReveal(false)} />
       )}
 
       {/* header */}
       <div className="text-center">
-        <span className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/5 px-4 py-1.5 text-xs text-white/75">
-          <Check size={14} className="text-mint-400" /> Booked &amp; paid — you're going somewhere
+        <span className={`inline-flex items-center gap-2 rounded-full border px-4 py-1.5 text-xs ${cancelled ? "border-white/15 bg-white/5 text-white/55" : "border-white/15 bg-white/5 text-white/75"}`}>
+          <Check size={14} className={cancelled ? "text-white/40" : "text-mint-400"} />
+          {cancelled ? "Cancelled — fully refunded" : "Booked & paid — you're going somewhere"}
         </span>
         <h1 className="mt-4 font-display text-3xl font-extrabold md:text-4xl">
-          {view.contactName ? `${view.contactName.split(" ")[0]}, pack a bag` : "Pack a bag"}
+          {cancelled
+            ? "Maybe next time"
+            : view.contactName ? `${view.contactName.split(" ")[0]}, pack a bag` : "Pack a bag"}
         </h1>
         <p className="mx-auto mt-2 max-w-md text-white/60">
-          {departed ? "The secret's out — here's everything you need." : "We'll let the secret out a little at a time. Here's where things stand."}
+          {cancelled
+            ? `We've refunded ${sym}${Math.round(view.refunded ?? view.priceTotal).toLocaleString()} in full. The unknown will keep.`
+            : departed ? "The secret's out — here's everything you need." : "We'll let the secret out a little at a time. Here's where things stand."}
         </p>
       </div>
 
-      {!departed && <Countdown gateAt={view.schedule.gateAt} />}
+      {!departed && !cancelled && <Countdown gateAt={view.schedule.gateAt} />}
 
       {/* demo time machine */}
+      {!cancelled && (
       <div className="card mt-6 flex flex-wrap items-center gap-2 p-4">
         <span className="mr-1 inline-flex items-center gap-1.5 text-xs text-white/55"><Clock size={14} /> Demo time machine:</span>
         {FF.map((f) => {
@@ -83,6 +104,7 @@ export function TripClient({ initial }: { initial: TripView }) {
           );
         })}
       </div>
+      )}
 
       {/* timeline */}
       <div className="mt-8 space-y-4">
@@ -100,6 +122,8 @@ export function TripClient({ initial }: { initial: TripView }) {
           </ul>
         </Stage>
 
+        {/* future stages hidden once cancelled */}
+        {!cancelled && <>
         {/* 2 — teaser */}
         {stageAtLeast(stage, "teaser") ? (
           <Stage Icon={Suitcase} title="A week to go — pack for this" tone="done">
@@ -154,9 +178,32 @@ export function TripClient({ initial }: { initial: TripView }) {
           <LockedStage Icon={Car} title="Your hotel &amp; your driver" unlockAt={view.schedule.arrivalAt}
             text="When you land, a driver meets you and reveals the hotel on the way there. The last little secret." />
         )}
+        </>}
       </div>
 
-      <div className="mt-10 text-center">
+      {/* cancellation — MVP full-refund policy */}
+      {!cancelled && (
+        <div className="mt-8 text-center">
+          {confirmCancel ? (
+            <div className="card mx-auto max-w-sm p-5">
+              <p className="text-sm text-white/75">Cancel this trip? You'll be refunded <span className="font-semibold">{sym}{Math.round(view.priceTotal).toLocaleString()}</span> in full.</p>
+              <div className="mt-4 flex justify-center gap-2">
+                <button onClick={() => setConfirmCancel(false)} className="btn-ghost px-5 py-2.5 text-sm">Keep it</button>
+                <button onClick={cancel} disabled={cancelBusy}
+                  className="rounded-full bg-rose-500/90 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-rose-500 active:scale-95 disabled:opacity-50">
+                  {cancelBusy ? "Refunding…" : "Yes, cancel & refund"}
+                </button>
+              </div>
+            </div>
+          ) : (
+            <button onClick={() => setConfirmCancel(true)} className="text-sm text-white/45 underline-offset-4 transition hover:text-white/75 hover:underline">
+              Change of plans? Cancel for a full refund
+            </button>
+          )}
+        </div>
+      )}
+
+      <div className="mt-8 text-center">
         <Link href="/" className="btn-ghost">Back home <ArrowRight size={18} /></Link>
       </div>
     </div>
@@ -168,24 +215,28 @@ function climateLine(band: string) {
 }
 
 function Countdown({ gateAt }: { gateAt: number }) {
-  const [now, setNow] = useState<number>(() => Date.now());
+  // `now` stays null until after mount so server and first client render match
+  // (avoids a hydration mismatch on the ticking numbers).
+  const [now, setNow] = useState<number | null>(null);
   useEffect(() => {
+    setNow(Date.now());
     const t = setInterval(() => setNow(Date.now()), 1000);
     return () => clearInterval(t);
   }, []);
-  const ms = Math.max(0, gateAt - now);
-  const d = Math.floor(ms / 86_400_000);
-  const h = Math.floor((ms % 86_400_000) / 3_600_000);
-  const m = Math.floor((ms % 3_600_000) / 60_000);
-  const s = Math.floor((ms % 60_000) / 1000);
-  const parts: [number, string][] = [[d, "days"], [h, "hrs"], [m, "min"], [s, "sec"]];
+  const ms = now === null ? null : Math.max(0, gateAt - now);
+  const cell = (v: number | null) => (ms === null || v === null ? "--" : String(v).padStart(2, "0"));
+  const d = ms === null ? null : Math.floor(ms / 86_400_000);
+  const h = ms === null ? null : Math.floor((ms % 86_400_000) / 3_600_000);
+  const m = ms === null ? null : Math.floor((ms % 3_600_000) / 60_000);
+  const s = ms === null ? null : Math.floor((ms % 60_000) / 1000);
+  const parts: [number | null, string][] = [[d, "days"], [h, "hrs"], [m, "min"], [s, "sec"]];
   return (
     <div className="card mt-6 p-5 text-center">
       <div className="text-xs uppercase tracking-wide text-white/45">Take-off in</div>
       <div className="mt-2 flex items-center justify-center gap-3">
         {parts.map(([v, l]) => (
           <div key={l} className="min-w-[3.5rem]">
-            <div className="tabnum font-display text-3xl font-extrabold">{String(v).padStart(2, "0")}</div>
+            <div className="tabnum font-display text-3xl font-extrabold">{cell(v)}</div>
             <div className="text-xs text-white/45">{l}</div>
           </div>
         ))}
@@ -215,7 +266,7 @@ function LockedStage({ Icon, title, text, unlockAt }: { Icon: typeof Lock; title
         <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-white/5 text-white/40"><Icon size={20} /></span>
         <div className="flex-1">
           <h2 className="font-display text-lg font-bold text-white/70">{title}</h2>
-          <div className="text-xs text-white/40">Unlocks {new Date(unlockAt).toLocaleDateString(undefined, { month: "short", day: "numeric" })}</div>
+          <div className="text-xs text-white/40">Unlocks {new Date(unlockAt).toLocaleDateString("en-GB", { month: "short", day: "numeric", timeZone: "UTC" })}</div>
         </div>
         <Lock size={18} className="text-white/30" />
       </div>
