@@ -1,5 +1,6 @@
 import type { Providers } from "../types.ts";
 import { mockProviders } from "./mock.ts";
+import { liveProviders } from "./live.ts";
 
 // Provider mode selector. The pipeline talks to one `Providers` interface; the
 // concrete source is swapped here. Real flight/hotel adapters (Duffel, Hotelbeds,
@@ -31,8 +32,9 @@ export function getProviders(mode?: ProviderMode): Providers {
     }
     return mockProviders;
   }
-  // Real adapters land here (Duffel flights, Hotelbeds hotels, transfer partners).
-  return mockProviders;
+  // Real adapters (Duffel flights, Hotelbeds hotels); each falls back to mock
+  // per-call if its own key/SDK is missing.
+  return liveProviders;
 }
 
 function hasLiveCredentials(): boolean {
