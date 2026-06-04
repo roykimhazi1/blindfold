@@ -1,4 +1,4 @@
-import type { ScoredOption, TripParams, SurpriseHints, RevealStage, RevealSchedule } from "@sv/engine";
+import type { ScoredOption, TripParams, SurpriseHints, RevealStage, RevealSchedule, PriceBreakdown } from "@sv/engine";
 import { buildSchedule, stageAt, stageRank, msToNextStage } from "@sv/engine";
 
 // In-memory booking store. No database in the MVP — bookings live in a Map kept
@@ -35,6 +35,8 @@ export interface Booking {
   secret: BookingSecret;
   contact: { name: string; email: string };
   schedule: RevealSchedule;
+  /** Cost/margin breakdown in EUR base — for admin revenue reporting. */
+  breakdownEur: PriceBreakdown;
   /** Furthest stage the user has fast-forwarded to in the demo clock. */
   demoStage: RevealStage;
 }
@@ -86,6 +88,7 @@ export function createBooking(
     },
     contact,
     schedule,
+    breakdownEur: option.breakdown,
     demoStage: "booked",
   };
   store.set(booking.id, booking);
@@ -94,6 +97,11 @@ export function createBooking(
 
 export function getBooking(id: string): Booking | undefined {
   return store.get(id);
+}
+
+/** All bookings, newest first — for the admin console. */
+export function listBookings(): Booking[] {
+  return [...store.values()].sort((a, b) => b.createdAtIso.localeCompare(a.createdAtIso));
 }
 
 /** Advance the demo clock to (at least) `stage`. Real bookings unlock by time. */
