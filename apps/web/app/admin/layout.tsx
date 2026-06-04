@@ -1,11 +1,12 @@
 import Link from "next/link";
-import { Compass, Wallet, Building, Gift, Sparkles } from "@/components/icons";
+import { Compass, Wallet, Building, Gift, Sparkles, Mail } from "@/components/icons";
 
 const NAV = [
   { href: "/admin", label: "Dashboard", Icon: Compass },
   { href: "/admin/bookings", label: "Bookings", Icon: Gift },
   { href: "/admin/destinations", label: "Destinations", Icon: Building },
   { href: "/admin/pricing", label: "Pricing & fees", Icon: Wallet },
+  { href: "/admin/outbox", label: "Outbox", Icon: Mail },
   { href: "/admin/agent-runs", label: "Agent runs", Icon: Sparkles },
 ];
 

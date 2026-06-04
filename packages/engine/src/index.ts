@@ -3,6 +3,7 @@ export * from "./types.ts";
 export { CATALOG, activeDestinations, findDestination } from "./catalog.ts";
 export { filterCandidates } from "./filters.ts";
 export { mockProviders } from "./providers/mock.ts";
+export { getProviders, resolveMode, type ProviderMode } from "./providers/index.ts";
 export {
   DEFAULT_PRICING,
   priceBundle,
