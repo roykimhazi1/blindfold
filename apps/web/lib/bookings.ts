@@ -165,10 +165,35 @@ export function msToNext(b: Booking, nowMs = Date.now()): number | null {
   return msToNextStage(b.schedule, nowMs);
 }
 
-// The mock hotel name carried a "(hidden until reveal)" suffix for safety in the
-// deal list; give the booking a believable name to unveil at arrival.
+// Per-city curated hotel pools. Falls back to the generic pool for cities not listed.
+const HOTEL_POOLS: Record<string, string[]> = {
+  Larnaca:    ["Radisson Beach Resort", "Palm Beach Hotel", "Lordos Beach Hotel", "Golden Bay Beach Hotel"],
+  Paphos:     ["Almyra Hotel", "Elysium Resort", "Annabelle Hotel", "Azia Resort & Spa"],
+  Athens:     ["Hotel Grande Bretagne", "King George Athens", "The Dolli at Acropolis", "New Hotel"],
+  Heraklion:  ["Galaxy Hotel", "GDM Megaron", "Capsis Astoria", "Lato Boutique Hotel"],
+  Santorini:  ["Katikies Hotel", "Canaves Oia", "Grace Santorini", "Mystique Resort"],
+  Rome:       ["Hotel Eden", "Palazzo Manfredi", "Forty Seven Hotel", "Hotel de Russie"],
+  Barcelona:  ["Hotel Arts Barcelona", "W Barcelona", "Mandarin Oriental", "El Palace Barcelona"],
+  Prague:     ["Hotel Savoy Prague", "The Mark Hotel", "Aria Hotel Prague", "Hotel Josef"],
+  Tbilisi:    ["Rooms Hotel Tbilisi", "Stamba Hotel", "Biltmore Tbilisi", "The Biltmore"],
+  Vienna:     ["Hotel Sacher Wien", "The Ritz-Carlton Vienna", "Grand Hotel Wien", "Hotel Imperial"],
+  Lisbon:     ["Bairro Alto Hotel", "Torel Palace Lisbon", "Memmo Alfama", "Palácio do Governador"],
+  Amsterdam:  ["Hotel V Nesplein", "Pulitzer Amsterdam", "The Dylan Amsterdam", "Hotel Brouwer"],
+  Budapest:   ["Boscolo Budapest", "Four Seasons Gresham Palace", "Aria Hotel Budapest", "Párisi Udvar Hotel"],
+  Valletta:   ["The Phoenicia Malta", "Iniala Harbour House", "Osborne Hotel", "Palazzo Consiglia"],
+  Dubrovnik:  ["Hotel Excelsior Dubrovnik", "Hilton Imperial Dubrovnik", "Hotel Bellevue", "Rixos Libertas"],
+  Nice:       ["Le Negresco", "Hotel Beau Rivage Nice", "Hyatt Regency Nice", "Villa Massena"],
+  Dubai:      ["Atlantis The Palm", "Burj Al Arab", "One&Only Royal Mirage", "Jumeirah Beach Hotel"],
+  Hurghada:   ["Steigenberger Al Dau Beach", "Oberoi Beach Resort", "Sheraton Soma Bay", "Baron Palace"],
+  Yerevan:    ["Marriott Armenia Hotel", "The Alexander Yerevan", "Moxy Yerevan", "Ani Plaza Hotel"],
+  Munich:     ["Bayerischer Hof", "Hotel Vier Jahreszeiten Kempinski", "Charles Hotel", "The Mandarin Oriental"],
+  "Kraków":   ["Hotel Stary Kraków", "Copernicus Hotel", "Hotel Wentzl", "Kanonicza 22"],
+};
+
+const GENERIC_POOL = ["The Marlowe", "Casa Lumière", "Hotel Verano", "The Wanderer", "Maison Aurora", "The Tideline"];
+
 function realHotelName(city: string, stars: number): string {
-  const names = ["The Marlowe", "Casa Lumière", "Hotel Verano", "The Wanderer", "Maison Aurora", "The Tideline"];
-  const pick = names[(city.length + stars) % names.length]!;
+  const pool = HOTEL_POOLS[city] ?? GENERIC_POOL;
+  const pick = pool[(city.length + stars) % pool.length]!;
   return `${pick} · ${stars}★`;
 }

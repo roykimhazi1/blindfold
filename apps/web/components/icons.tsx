@@ -238,3 +238,11 @@ export const Menu = (p: IconProps) => (
     <path d="M4 7h16M4 12h16M4 17h16" />
   </Svg>
 );
+
+export const CreditCard = (p: IconProps) => (
+  <Svg {...p}>
+    <rect x="2" y="5" width="20" height="14" rx="2" />
+    <path d="M2 10h20" />
+    <path d="M6 15h2M11 15h4" />
+  </Svg>
+);
