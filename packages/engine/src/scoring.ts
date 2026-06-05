@@ -3,8 +3,25 @@ import type {
   TripParams,
   PricedComponents,
   PriceBreakdown,
+  VibeType,
+  Priority,
 } from "./types.ts";
 import { monthIndexFromIso } from "./util.ts";
+
+// "If we nail one thing…" — each priority maps to the destination vibe tag that
+// best delivers it, so the single must-nail answer can nudge the ranking.
+const PRIORITY_VIBE: Record<Priority, VibeType> = {
+  view: "nature",
+  food: "culture",
+  switchoff: "beach",
+  nightlife: "nightlife",
+  walkable: "city",
+};
+
+function priorityScore(dest: Destination, params: TripParams): number {
+  if (!params.mustNail) return 0.5; // neutral — doesn't distort the base ranking
+  return dest.vibeTags.includes(PRIORITY_VIBE[params.mustNail]) ? 1 : 0.3;
+}
 
 /**
  * Score a candidate 0..1. Higher is better. Blends value-for-money, how well
@@ -40,8 +57,11 @@ export function scoreOption(
   // Hotel quality bonus when it beats the requested floor.
   const starBonus = Math.min(1, components.hotel.stars / 5);
 
+  // The one must-nail priority (neutral when the user didn't pick one).
+  const priority = priorityScore(dest, params);
+
   return Number(
-    (0.4 * value + 0.3 * vibe + 0.2 * climate + 0.1 * starBonus).toFixed(4),
+    (0.38 * value + 0.27 * vibe + 0.18 * climate + 0.09 * starBonus + 0.08 * priority).toFixed(4),
   );
 }
 

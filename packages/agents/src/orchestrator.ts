@@ -1,7 +1,8 @@
 import type { TripParams, RunOptions } from "@sv/engine";
-import { runDealPipeline, toSurpriseDeal, assertNoLeaks } from "@sv/engine";
+import { toSurpriseDeal, assertNoLeaks } from "@sv/engine";
 import { createLlmClient, type LlmClient } from "./llm.ts";
 import { runCopywriter } from "./copywriter.ts";
+import { scheduleTrip } from "./scheduler.ts";
 import type { AgentTrace, OrchestratorResult } from "./types.ts";
 
 export interface OrchestrateOptions extends RunOptions {
@@ -9,10 +10,13 @@ export interface OrchestrateOptions extends RunOptions {
 }
 
 /**
- * Orchestrator agent. Runs the deterministic deal pipeline (which embeds the
- * Destination Scout / Flight / Hotel / Transfer / Attraction / Budget-Optimizer
- * specialists as pipeline stages), then delegates user-facing copy to the
- * Surprise Copywriter agent — re-checking every output for destination leaks.
+ * Orchestrate a surprise search end-to-end:
+ *  1. The **Scheduler Master** (`scheduleTrip`) runs the 3 specialist agents
+ *     (Flight/Hotel/Attractions) over the deterministic settlement → client-safe
+ *     deals + per-agent traces.
+ *  2. The **Surprise Copywriter** agent rewrites each teaser via the LLM,
+ *     re-checked for destination leaks (the safe engine teaser is kept if the
+ *     model leaks).
  *
  * Returns client-safe deals plus per-agent traces for the admin dashboard.
  */
@@ -22,25 +26,13 @@ export async function orchestrateDeals(
 ): Promise<OrchestratorResult> {
   const started = Date.now();
   const llm = opts.llm ?? createLlmClient();
-  const traces: AgentTrace[] = [];
 
-  // [1-6] Deterministic spine: candidates → price → budget → score → select.
-  const pipelineStart = Date.now();
-  const run = await runDealPipeline(params, opts);
-  traces.push(
-    pipelineTrace("destination-scout", `Generated ${run.diagnostics.candidates} candidate cities`, pipelineStart),
-    pipelineTrace("flight-agent", `Priced flights for ${run.diagnostics.candidates} cities`, pipelineStart),
-    pipelineTrace("hotel-agent", `Priced hotels (star/board constraints applied)`, pipelineStart),
-    pipelineTrace("transfer-agent", `Quoted airport transfers from partner rate cards`, pipelineStart),
-    pipelineTrace("attraction-curator", `Matched experience bundles to vibe`, pipelineStart),
-    pipelineTrace(
-      "budget-optimizer",
-      `${run.diagnostics.inBudget}/${run.diagnostics.candidates} fit budget; selected ${run.deals.length}`,
-      pipelineStart,
-    ),
-  );
+  // [1] Scheduler Master + specialists + deterministic settlement.
+  // Pass the resolved client down so the specialists reason with the same model.
+  const run = await scheduleTrip(params, { ...opts, llm });
+  const traces: AgentTrace[] = [...run.traces];
 
-  // [Copywriter] Enrich each selected option's teaser via the LLM (leak-guarded).
+  // [2] Copywriter enriches each selected option's teaser (leak-guarded).
   const deals = await Promise.all(
     run.options.map(async (option, i) => {
       const { teaser, trace } = await runCopywriter(llm, option, params);
@@ -48,37 +40,15 @@ export async function orchestrateDeals(
       const enriched = { ...option, hints: { ...option.hints, teaser } };
       assertNoLeaks(enriched.hints, option.destination); // belt-and-suspenders
       const deal = toSurpriseDeal(enriched, params);
-      // Preserve the engine's opaque id from the original redaction.
+      // Preserve the Scheduler Master's opaque id from the original redaction.
       return { ...deal, id: run.deals[i]?.id ?? deal.id };
     }),
   );
-
-  traces.unshift({
-    agent: "orchestrator",
-    status: "ok",
-    mode: llm.mode,
-    durationMs: Date.now() - started,
-    summary: `Ran ${run.diagnostics.candidates} candidates → ${deals.length} surprise deals`,
-  });
 
   return {
     deals,
     options: run.options,
     traces,
     diagnostics: { ...run.diagnostics, totalMs: Date.now() - started },
-  };
-}
-
-function pipelineTrace(
-  agent: AgentTrace["agent"],
-  summary: string,
-  start: number,
-): AgentTrace {
-  return {
-    agent,
-    status: "ok",
-    mode: "mock",
-    durationMs: Date.now() - start,
-    summary,
   };
 }

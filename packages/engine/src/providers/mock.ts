@@ -35,6 +35,13 @@ function chooseStars(dest: Destination, params: TripParams): number {
   return Math.min(5, Math.max(min, min + bump));
 }
 
+// Plausible departure hours, varied per destination so flight times differ
+// (and some land in the red-eye window — see `isRedeye`). 03:00/05:00 outbound
+// and a 23:00 return are the "harsh" ones the avoid-redeye preference drops.
+const OUTBOUND_HOURS = [3, 5, 7, 9, 11, 14];
+const INBOUND_HOURS = [16, 18, 20, 21, 23];
+const hh = (n: number) => String(n).padStart(2, "0");
+
 const mockFlights = {
   async quote(dest: Destination, params: TripParams): Promise<FlightQuote | null> {
     const hours = dest.flightHoursFrom[params.departureAirport];
@@ -46,12 +53,14 @@ const mockFlights = {
     const perPax = 45 + hours * 38 * seasonal + seededRange(`fl:${dest.id}`, -15, 25);
     const carriers = ["Aegean", "Wizz Air", "ITA Airways", "Israir", "Austrian"];
     const carrier = carriers[Math.floor(seededRange(`car:${dest.id}`, 0, carriers.length))]!;
+    const outH = OUTBOUND_HOURS[Math.floor(seededRange(`dep:${dest.id}`, 0, OUTBOUND_HOURS.length))]!;
+    const inH = INBOUND_HOURS[Math.floor(seededRange(`ret:${dest.id}`, 0, INBOUND_HOURS.length))]!;
 
     return {
       destinationId: dest.id,
       carrier,
-      outboundDepartIso: `${params.dates.start}T06:40:00`,
-      inboundDepartIso: `${params.dates.start}T20:10:00`,
+      outboundDepartIso: `${params.dates.start}T${hh(outH)}:40:00`,
+      inboundDepartIso: `${params.dates.start}T${hh(inH)}:10:00`,
       durationHours: round2(hours),
       totalPrice: round2(perPax * pax),
     };

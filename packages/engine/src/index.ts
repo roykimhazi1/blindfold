@@ -28,6 +28,16 @@ export {
   type RunResult,
 } from "./pipeline.ts";
 export {
+  bookBundle,
+  mockFulfillment,
+  type Fulfillment,
+  type DomainBooker,
+  type SupplierOrder,
+  type BookingResult,
+  type BookingDomain,
+  type BookInput,
+} from "./fulfillment.ts";
+export {
   REVEAL_ORDER,
   stageRank,
   stageAtLeast,

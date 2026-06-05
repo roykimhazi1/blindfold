@@ -44,6 +44,8 @@ export interface Booking {
   /** Amount refunded (display currency) when cancelled. */
   refunded?: number;
   cancelledAtIso?: string;
+  /** Supplier order refs from the booking saga (flight/hotel/attractions). */
+  supplierRefs?: string[];
 }
 
 type Store = Map<string, Booking>;

@@ -1,8 +1,10 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { runDealPipeline, exampleParams } from "./index.ts";
+import { runDealPipeline, exampleParams, scoreOption, mockProviders, activeDestinations } from "./index.ts";
 import { findLeaks } from "./hints.ts";
 import { CATALOG } from "./catalog.ts";
+import { isRedeye } from "./util.ts";
+import type { PricedComponents, PriceBreakdown } from "./types.ts";
 
 test("returns up to 3 surprise deals for the express path", async () => {
   const res = await runDealPipeline(exampleParams());
@@ -94,4 +96,75 @@ test("impossible budget yields zero deals (no crash)", async () => {
   });
   const res = await runDealPipeline(params);
   assert.equal(res.deals.length, 0);
+});
+
+test("avoided regions are excluded from results", async () => {
+  const params = exampleParams({
+    budget: { amount: 6000, currency: "EUR", perPerson: false },
+    constraints: { nationality: "IL", avoidRegions: ["Southern Europe"] },
+  });
+  const res = await runDealPipeline(params);
+  assert.ok(res.deals.length > 0, "expected some deals to remain");
+  for (const opt of res.options) {
+    assert.notEqual(
+      opt.destination.region,
+      "Southern Europe",
+      `${opt.destination.id} is in an avoided region`,
+    );
+  }
+});
+
+test("avoid-redeye drops overnight / very-early flights", async () => {
+  // Non-vacuous: the catalog must actually contain at least one red-eye.
+  let redeyes = 0;
+  for (const dest of activeDestinations()) {
+    const f = await mockProviders.flights.quote(dest, exampleParams());
+    if (f && isRedeye(f.outboundDepartIso, f.inboundDepartIso)) redeyes++;
+  }
+  assert.ok(redeyes > 0, "expected at least one red-eye flight in the catalog");
+
+  const res = await runDealPipeline(
+    exampleParams({
+      budget: { amount: 6000, currency: "EUR", perPerson: false },
+      constraints: { nationality: "IL", avoidRedeye: true },
+    }),
+  );
+  assert.ok(res.deals.length > 0, "expected non-redeye options to remain");
+  for (const opt of res.options) {
+    const f = opt.components.flight;
+    assert.ok(
+      !isRedeye(f.outboundDepartIso, f.inboundDepartIso),
+      `${opt.destination.id} returned a red-eye despite avoidRedeye`,
+    );
+  }
+});
+
+test("occasion flavors every teaser (and stays leak-safe)", async () => {
+  const res = await runDealPipeline(
+    exampleParams({
+      budget: { amount: 6000, currency: "EUR", perPerson: false },
+      occasion: "honeymoon",
+    }),
+  );
+  for (const opt of res.options) {
+    assert.ok(
+      opt.hints.teaser.startsWith("A dreamy"),
+      `teaser not flavored by occasion: ${opt.hints.teaser}`,
+    );
+    assert.deepEqual(findLeaks(opt.destination, opt.hints.teaser), []);
+  }
+});
+
+test("the one must-nail priority nudges scoring", () => {
+  const athens = CATALOG.find((d) => d.id === "athens-gr")!; // tags: city/culture/nightlife
+  const components = { hotel: { stars: 4 } } as unknown as PricedComponents;
+  const breakdown = { total: 1000 } as unknown as PriceBreakdown;
+  const ceiling = 1500;
+
+  const base = scoreOption(athens, exampleParams(), components, breakdown, ceiling);
+  const matched = scoreOption(athens, exampleParams({ mustNail: "food" }), components, breakdown, ceiling); // food → culture ✓
+  const missed = scoreOption(athens, exampleParams({ mustNail: "switchoff" }), components, breakdown, ceiling); // switchoff → beach ✗
+
+  assert.ok(matched > base, "a matched must-nail should raise the score");
+  assert.ok(missed < base, "an unmet must-nail should lower the score");
 });

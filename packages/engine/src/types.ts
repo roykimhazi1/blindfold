@@ -11,6 +11,11 @@ export type Pace = "chill" | "active" | "any";
 export type Board = "room_only" | "breakfast" | "half_board" | "all_inclusive";
 export type RoomType = "standard" | "double" | "suite" | "family";
 export type SurpriseIntensity = "full" | "region";
+/** Why they're going — sets the emotional tone of the curation, teaser, and reveal. */
+export type Occasion =
+  | "anniversary" | "birthday" | "honeymoon" | "celebration" | "treat" | "getaway";
+/** The single thing the trip must get right — a soft scoring priority. */
+export type Priority = "view" | "food" | "switchoff" | "nightlife" | "walkable";
 
 export interface Budget {
   amount: number;
@@ -52,6 +57,10 @@ export interface Constraints {
   avoidRegions?: string[];
   accessibility?: boolean;
   dietary?: string[];
+  /** Reject overnight / very-early flights when true. */
+  avoidRedeye?: boolean;
+  /** Prefer non-stop flights only. (Mock flights are single-leg, so always direct.) */
+  directOnly?: boolean;
   /** Traveler nationality (ISO-2) used for visa filtering. */
   nationality?: string;
 }
@@ -66,6 +75,10 @@ export interface TripParams {
   hotel?: HotelPrefs;
   constraints?: Constraints;
   surpriseIntensity?: SurpriseIntensity;
+  /** Why they're going — flavors the teaser + reveal (optional). */
+  occasion?: Occasion;
+  /** The one thing to get right — nudges scoring (optional). */
+  mustNail?: Priority;
 }
 
 // ── Catalog ──────────────────────────────────────────────────────────

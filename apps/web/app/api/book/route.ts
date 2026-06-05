@@ -1,19 +1,38 @@
 import { NextResponse } from "next/server";
 import type { TripParams } from "@sv/engine";
+import { bookBundle } from "@sv/engine";
 import { orchestrateDeals } from "@sv/agents";
 import { decodeParams } from "@/lib/trip";
 import { createBooking } from "@/lib/bookings";
 
 export const runtime = "nodejs";
 
+// A re-quote only interrupts the user if the price moved by more than this.
+const PRICE_DELTA_TOLERANCE = 0.005; // 0.5%
+
 /**
- * POST /api/book — { p, dealId, contact } → creates a booking.
- * Re-runs the deal pipeline from the encoded params, finds the chosen option
- * (so we recover the real, secret destination), persists it, and returns the
- * booking id. No payment integration in the MVP — this stands in for Stripe.
+ * POST /api/book — { p, dealId, contact, shownTotal?, confirmPriceChange? }
+ *
+ * 1. Re-runs the search from the encoded params (recovers the chosen option +
+ *    the *current* price).
+ * 2. **Re-quote + confirm delta**: if the live price drifted past tolerance from
+ *    what the user was shown, return `{ priceChanged, newTotal }` so the client
+ *    can confirm before we charge. (No-op in mock mode — prices are
+ *    deterministic — but live the instant real suppliers are wired in.)
+ * 3. Runs the **booking saga** (`bookBundle`: flight → hotel → attractions,
+ *    compensating on partial failure).
+ * 4. Persists the booking (holds the secret server-side) and returns its id.
+ *
+ * No real payment in the MVP — this stands in for Stripe authorize+capture.
  */
 export async function POST(req: Request) {
-  let body: { p?: string; dealId?: string; contact?: { name?: string; email?: string } };
+  let body: {
+    p?: string;
+    dealId?: string;
+    contact?: { name?: string; email?: string };
+    shownTotal?: number;
+    confirmPriceChange?: boolean;
+  };
   try {
     body = await req.json();
   } catch {
@@ -37,7 +56,31 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "That surprise has expired — please search again" }, { status: 409 });
     }
     const deal = deals[idx]!;
-    const booking = createBooking(options[idx]!, params, deal, { name, email });
+    const option = options[idx]!;
+
+    // [2] Re-quote + confirm delta.
+    if (typeof body.shownTotal === "number" && !body.confirmPriceChange) {
+      const tolerance = Math.max(1, body.shownTotal * PRICE_DELTA_TOLERANCE);
+      if (Math.abs(deal.priceTotal - body.shownTotal) > tolerance) {
+        return NextResponse.json(
+          { priceChanged: true, newTotal: deal.priceTotal, currency: deal.currency },
+          { status: 200 },
+        );
+      }
+    }
+
+    // [3] Booking saga — secure all three legs or roll back.
+    const booked = await bookBundle(option.components, { bookingId: `${body.dealId}:${email}` });
+    if (!booked.ok) {
+      return NextResponse.json(
+        { error: "We couldn't secure the whole trip just now — please try again." },
+        { status: 502 },
+      );
+    }
+
+    // [4] Persist the booking; record the supplier refs for ops.
+    const booking = createBooking(option, params, deal, { name, email });
+    booking.supplierRefs = booked.orders.map((o) => o.ref);
     return NextResponse.json({ id: booking.id });
   } catch (err) {
     const message = err instanceof Error ? err.message : "Unknown error";

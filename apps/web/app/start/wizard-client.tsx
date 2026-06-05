@@ -4,11 +4,13 @@ import { useMemo, useState, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import type {
   TripParams, Currency, PartyType, VibeType, Temperature, Pace, Board, SurpriseIntensity,
+  Occasion, Priority,
 } from "@sv/engine";
 import { encodeParams, CURRENCY_SYMBOL } from "@/lib/trip";
 import {
   Sparkles, Wallet, Calendar, Users, Umbrella, Building, Mountain, Wine, Landmark,
   Sun, Snow, Globe, Lock, Plane, Plus, Minus, ArrowRight, Check, Compass, Heart,
+  Gift, Star,
 } from "@/components/icons";
 
 // ── The agile path ───────────────────────────────────────────────────
@@ -16,7 +18,7 @@ import {
 // tap decides how many questions follow: more surprise → fewer questions.
 type Phase = "level" | "questions";
 type Level = "blackout" | "hint" | "steer";
-type StepId = "budget" | "dates" | "travelers" | "mood" | "hotel" | "limits";
+type StepId = "occasion" | "budget" | "dates" | "travelers" | "mood" | "hotel" | "limits";
 
 const LEVELS: {
   id: Level; title: string; blurb: string; meta: string; Icon: typeof Lock; intensity: SurpriseIntensity;
@@ -24,29 +26,34 @@ const LEVELS: {
   {
     id: "blackout", title: "Total blackout", Icon: Lock, intensity: "full",
     blurb: "Pack a bag and trust us. Everything's a secret until you're nearly there.",
-    meta: "3 quick questions",
+    meta: "4 quick questions",
   },
   {
     id: "hint", title: "Drop me a hint", Icon: Sparkles, intensity: "full",
     blurb: "Tell us the mood you're after. The where stays sealed till the airport.",
-    meta: "4 light questions",
+    meta: "5 light questions",
   },
   {
     id: "steer", title: "Let me steer", Icon: Compass, intensity: "region",
     blurb: "Shape the stay and the flight — we'll even tell you the region.",
-    meta: "6 questions · region revealed",
+    meta: "7 questions · region revealed",
   },
 ];
 
 const STEPS_BY_LEVEL: Record<Level, StepId[]> = {
-  blackout: ["budget", "dates", "travelers"],
-  hint: ["budget", "dates", "travelers", "mood"],
-  steer: ["budget", "dates", "travelers", "mood", "hotel", "limits"],
+  blackout: ["occasion", "budget", "dates", "travelers"],
+  hint: ["occasion", "budget", "dates", "travelers", "mood"],
+  steer: ["occasion", "budget", "dates", "travelers", "mood", "hotel", "limits"],
 };
 
 const STEP_DEF: Record<StepId, {
   Icon: typeof Wallet; eyebrow: string; title: string; subtitle?: string; optional?: boolean;
 }> = {
+  occasion: {
+    Icon: Gift, eyebrow: "First — the why", title: "What's the occasion?",
+    subtitle: "Tap what fits and we'll build the whole surprise around it. Or skip — we'll still nail it.",
+    optional: true,
+  },
   budget: { Icon: Wallet, eyebrow: "The only number that matters", title: "What can you spend?" },
   dates: { Icon: Calendar, eyebrow: "When can you slip away?", title: "Pick your window" },
   travelers: { Icon: Users, eyebrow: "Who's in?", title: "Who's coming along?" },
@@ -66,6 +73,41 @@ const VIBES: { v: VibeType; label: string; Icon: typeof Umbrella }[] = [
   { v: "culture", label: "Culture", Icon: Landmark },
 ];
 
+const OCCASIONS: { o: Occasion; label: string; Icon: typeof Heart }[] = [
+  { o: "anniversary", label: "Anniversary", Icon: Heart },
+  { o: "honeymoon", label: "Honeymoon", Icon: Sparkles },
+  { o: "birthday", label: "Birthday", Icon: Gift },
+  { o: "celebration", label: "Celebration", Icon: Wine },
+  { o: "treat", label: "Treat myself", Icon: Star },
+  { o: "getaway", label: "Just getting away", Icon: Compass },
+];
+
+// "If we nail one thing…" — each maps to a vibe tag the engine scores on.
+const PRIORITIES: { p: Priority; label: string; Icon: typeof Heart }[] = [
+  { p: "view", label: "The view", Icon: Mountain },
+  { p: "food", label: "The food", Icon: Wine },
+  { p: "switchoff", label: "Total switch-off", Icon: Umbrella },
+  { p: "nightlife", label: "Going out", Icon: Sparkles },
+  { p: "walkable", label: "Walkable & central", Icon: Building },
+];
+
+// Must match the catalog's `region` strings — the engine filters on region/country.
+const AVOID_REGIONS = [
+  "Eastern Mediterranean", "Southern Europe", "Greek Islands",
+  "Western Mediterranean", "Central Europe", "Caucasus",
+];
+
+// A one-line affirmation shown on the NEXT step, reacting to the last answer —
+// keeps the surprise feeling like it's forming behind the curtain.
+const AFFIRMATION: Partial<Record<StepId, string>> = {
+  occasion: "Lovely. Now the essentials.",
+  budget: "Good — somewhere already fits this.",
+  dates: "Those dates open up something special.",
+  travelers: "Perfect. We know who we're delighting.",
+  mood: "Noted — this is taking shape.",
+  hotel: "Nice. We've got your kind of stay.",
+};
+
 // One-tap presets keep answering light — fine-tune underneath if you like.
 const BUDGET_PRESETS: Record<Currency, number[]> = {
   ILS: [5000, 8000, 12000],
@@ -77,11 +119,11 @@ const BUDGET_RANGE: Record<Currency, { min: number; max: number; step: number }>
   EUR: { min: 500, max: 7000, step: 50 },
   USD: { min: 500, max: 7500, step: 50 },
 };
-const PARTY_PRESETS: { label: string; adults: number; children: number; partyType: PartyType }[] = [
-  { label: "Just me", adults: 1, children: 0, partyType: "solo" },
-  { label: "Couple", adults: 2, children: 0, partyType: "couple" },
-  { label: "Family of 4", adults: 2, children: 2, partyType: "family" },
-  { label: "Friends", adults: 4, children: 0, partyType: "friends" },
+const PARTY_PRESETS: { label: string; adults: number; childAges: number[]; partyType: PartyType }[] = [
+  { label: "Just me", adults: 1, childAges: [], partyType: "solo" },
+  { label: "Couple", adults: 2, childAges: [], partyType: "couple" },
+  { label: "Family of 4", adults: 2, childAges: [8, 10], partyType: "family" },
+  { label: "Friends", adults: 4, childAges: [], partyType: "friends" },
 ];
 
 const TODAY = "2026-06-04"; // matches the product's "now"; keeps SSR/hydration stable
@@ -111,16 +153,21 @@ export function WizardClient() {
   const [endDate, setEndDate] = useState("2026-07-14");
   const [flexible, setFlexible] = useState(true);
   const [adults, setAdults] = useState(2);
-  const [children, setChildren] = useState(0);
+  const [childAges, setChildAges] = useState<number[]>([]);
   const [partyType, setPartyType] = useState<PartyType>("couple");
 
   // Optional
+  const [occasion, setOccasion] = useState<Occasion | null>(null);
   const [vibes, setVibes] = useState<VibeType[]>([]);
   const [temperature, setTemperature] = useState<Temperature>("any");
   const [pace, setPace] = useState<Pace>("any");
+  const [mustNail, setMustNail] = useState<Priority | null>(null);
   const [minStars, setMinStars] = useState(3);
   const [board, setBoard] = useState<Board>("breakfast");
   const [maxFlightHours, setMaxFlightHours] = useState<number | "">("");
+  const [avoidRegions, setAvoidRegions] = useState<string[]>([]);
+  const [directOnly, setDirectOnly] = useState(false);
+  const [avoidRedeye, setAvoidRedeye] = useState(false);
 
   const activeLevel = LEVELS.find((l) => l.id === level)!;
   const steps = STEPS_BY_LEVEL[level];
@@ -161,6 +208,16 @@ export function WizardClient() {
     // Keep the window valid: if the return is now on/before departure, nudge it.
     if (Date.parse(endDate) <= Date.parse(d)) setEndDate(addDays(d, Math.max(1, nights || 4)));
   }
+  function setChildCount(n: number) {
+    setChildAges((prev) => {
+      const next = prev.slice(0, Math.max(0, n));
+      while (next.length < n) next.push(8); // sensible default age, adjustable below
+      return next;
+    });
+  }
+  function setChildAge(i: number, age: number) {
+    setChildAges((prev) => prev.map((a, idx) => (idx === i ? age : a)));
+  }
 
   function buildParams(): TripParams {
     const wantsMood = level !== "blackout";
@@ -168,14 +225,22 @@ export function WizardClient() {
     return {
       budget: { amount, currency, perPerson },
       dates: { mode: flexible ? "flexible" : "exact", start: startDate, nights, flexDays: flexible ? 3 : undefined },
-      travelers: { adults, childrenAges: Array.from({ length: children }, () => 8), partyType },
+      travelers: { adults, childrenAges: childAges, partyType },
       departureAirport: "TLV",
       vibe: wantsMood && (vibes.length || temperature !== "any" || pace !== "any")
         ? { types: vibes, temperature, pace } : undefined,
       hotel: wantsDetail ? { minStars, board, roomType: "double" } : undefined,
       constraints: wantsDetail
-        ? { nationality: "IL", maxFlightHours: maxFlightHours === "" ? undefined : Number(maxFlightHours) }
+        ? {
+            nationality: "IL",
+            maxFlightHours: maxFlightHours === "" ? undefined : Number(maxFlightHours),
+            avoidRegions: avoidRegions.length ? avoidRegions : undefined,
+            directOnly: directOnly || undefined,
+            avoidRedeye: avoidRedeye || undefined,
+          }
         : { nationality: "IL" },
+      occasion: occasion ?? undefined,
+      mustNail: wantsMood ? (mustNail ?? undefined) : undefined,
       surpriseIntensity: activeLevel.intensity,
     };
   }
@@ -256,10 +321,10 @@ export function WizardClient() {
         </button>
       </div>
 
-      {/* progress */}
+      {/* progress — framed as a sealing envelope, not a form to grind through */}
       <div className="mb-2 flex items-center justify-between text-xs text-white/45">
-        <span>Question {step + 1} of {steps.length}</span>
-        <span>{progress}%</span>
+        <span>Your surprise is taking shape</span>
+        <span className="tabnum">{progress}% sealed</span>
       </div>
       <div className="mb-6 h-2 w-full overflow-hidden rounded-full bg-white/10">
         <div className="h-full rounded-full bg-gradient-to-r from-brand-500 to-violet-500 transition-all duration-500 ease-out" style={{ width: `${progress}%` }} />
@@ -278,7 +343,24 @@ export function WizardClient() {
           </div>
           {def.subtitle && <p className="mt-3 text-sm text-white/60">{def.subtitle}</p>}
 
+          {step > 0 && AFFIRMATION[steps[step - 1]!] && (
+            <p className="mt-3 inline-flex items-center gap-1.5 rounded-full bg-mint-400/10 px-3 py-1 text-xs font-medium text-mint-400">
+              <Sparkles size={12} /> {AFFIRMATION[steps[step - 1]!]}
+            </p>
+          )}
+
           <div className="mt-6">
+            {currentId === "occasion" && (
+              <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+                {OCCASIONS.map((o) => (
+                  <Chip key={o.o} active={occasion === o.o}
+                    onClick={() => setOccasion((c) => (c === o.o ? null : o.o))}>
+                    <o.Icon size={16} /> {o.label}
+                  </Chip>
+                ))}
+              </div>
+            )}
+
             {currentId === "budget" && (
               <div className="space-y-5">
                 <div className="flex items-end gap-3">
@@ -346,16 +428,35 @@ export function WizardClient() {
               <div className="space-y-5">
                 <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
                   {PARTY_PRESETS.map((p) => {
-                    const active = adults === p.adults && children === p.children && partyType === p.partyType;
+                    const active = adults === p.adults && childAges.length === p.childAges.length && partyType === p.partyType;
                     return (
-                      <Chip key={p.label} active={active} onClick={() => { setAdults(p.adults); setChildren(p.children); setPartyType(p.partyType); }}>
+                      <Chip key={p.label} active={active} onClick={() => { setAdults(p.adults); setChildAges([...p.childAges]); setPartyType(p.partyType); }}>
                         {p.label}
                       </Chip>
                     );
                   })}
                 </div>
                 <Stepper label="Adults" value={adults} min={1} onChange={setAdults} />
-                <Stepper label="Children" value={children} min={0} onChange={setChildren} />
+                <Stepper label="Children" value={childAges.length} min={0} onChange={setChildCount} />
+                {childAges.length > 0 && (
+                  <div className="space-y-2">
+                    <label className="text-sm text-white/60">How old will they be when you travel?</label>
+                    <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+                      {childAges.map((age, i) => (
+                        <label key={i} className="flex items-center justify-between gap-2 rounded-2xl border border-white/15 bg-white/5 px-3 py-2 text-sm">
+                          <span className="text-white/60">Child {i + 1}</span>
+                          <select value={age} onChange={(e) => setChildAge(i, Number(e.target.value))}
+                            className="rounded-lg border border-white/15 bg-ink-800 px-2 py-1" aria-label={`Child ${i + 1} age`}>
+                            {Array.from({ length: 18 }, (_, n) => (
+                              <option key={n} value={n}>{n === 0 ? "<1 yr" : `${n} yr`}</option>
+                            ))}
+                          </select>
+                        </label>
+                      ))}
+                    </div>
+                    <p className="text-xs text-white/45">Ages help us match flights, visas, and the right kind of fun.</p>
+                  </div>
+                )}
                 <div>
                   <label className="text-sm text-white/60">What's the trip?</label>
                   <div className="mt-2 grid grid-cols-4 gap-2">
@@ -386,6 +487,17 @@ export function WizardClient() {
                     <Chip active={temperature === "warm"} onClick={() => setTemperature("warm")}><Sun size={16} /> Warm</Chip>
                     <Chip active={temperature === "any"} onClick={() => setTemperature("any")}><Globe size={16} /> Either</Chip>
                     <Chip active={temperature === "cold"} onClick={() => setTemperature("cold")}><Snow size={16} /> Cold</Chip>
+                  </div>
+                </div>
+                <div>
+                  <label className="text-sm text-white/60">If we nail one thing, what is it?</label>
+                  <div className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-3">
+                    {PRIORITIES.map((pr) => (
+                      <Chip key={pr.p} active={mustNail === pr.p}
+                        onClick={() => setMustNail((c) => (c === pr.p ? null : pr.p))}>
+                        <pr.Icon size={16} /> {pr.label}
+                      </Chip>
+                    ))}
                   </div>
                 </div>
                 {level === "steer" && (
@@ -430,6 +542,20 @@ export function WizardClient() {
                       </Chip>,
                     )}
                   </div>
+                </div>
+                <Toggle label="Direct flights only" value={directOnly} onChange={setDirectOnly} />
+                <Toggle label="No harsh red-eyes (very early or late-night)" value={avoidRedeye} onChange={setAvoidRedeye} />
+                <div>
+                  <label className="text-sm text-white/60">Been there, or just not feeling it?</label>
+                  <div className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-3">
+                    {AVOID_REGIONS.map((r) => (
+                      <Chip key={r} active={avoidRegions.includes(r)}
+                        onClick={() => setAvoidRegions((c) => c.includes(r) ? c.filter((x) => x !== r) : [...c, r])}>
+                        {r}
+                      </Chip>
+                    ))}
+                  </div>
+                  <p className="mt-2 text-xs text-white/45">We'll steer your surprise away from anywhere you tap.</p>
                 </div>
                 <p className="flex items-center gap-2 text-xs text-white/45">
                   <Heart size={13} className="text-brand-300" />

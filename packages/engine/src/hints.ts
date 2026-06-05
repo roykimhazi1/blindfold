@@ -5,6 +5,7 @@ import type {
   SurpriseHints,
   ClimateBand,
   FlightBand,
+  Occasion,
 } from "./types.ts";
 import { monthIndexFromIso } from "./util.ts";
 
@@ -36,6 +37,17 @@ const VIBE_WORD: Record<string, string> = {
   culture: "history-soaked",
 };
 
+// Occasion sets the teaser's opening note. Leak-safe by construction — these
+// only color the tone, never name a place.
+const OCCASION_LEAD: Record<Occasion, string> = {
+  anniversary: "A romantic",
+  honeymoon: "A dreamy",
+  birthday: "A birthday-worthy",
+  celebration: "A celebratory",
+  treat: "A well-earned",
+  getaway: "A",
+};
+
 export function buildHints(
   dest: Destination,
   params: TripParams,
@@ -48,8 +60,9 @@ export function buildHints(
   const reveal = params.surpriseIntensity === "region";
 
   const vibeWords = dest.vibeTags.map((t) => VIBE_WORD[t] ?? t).slice(0, 2).join(" & ");
+  const lead = params.occasion ? OCCASION_LEAD[params.occasion] : "A";
   const teaser =
-    `A ${cBand}, ${vibeWords} escape — ${components.hotel.stars}★ stays, ` +
+    `${lead} ${cBand}, ${vibeWords} escape — ${components.hotel.stars}★ stays, ` +
     `${dest.attractionPackages[0]?.items.length ?? 3} curated experiences, ` +
     `and a ${fBand} flight away. Where exactly? That's the surprise.`;
 
