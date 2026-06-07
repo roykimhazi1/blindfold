@@ -7,8 +7,8 @@ export const dynamic = "force-dynamic";
 
 const fmt = (iso: string) => new Date(iso).toLocaleString(undefined, { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" });
 
-export default function AdminOutbox() {
-  const emails = listOutbox();
+export default async function AdminOutbox() {
+  const emails = await listOutbox();
 
   return (
     <div>

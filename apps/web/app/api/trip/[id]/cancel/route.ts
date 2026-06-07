@@ -10,7 +10,7 @@ export const runtime = "nodejs";
  */
 export async function POST(_req: Request, ctx: { params: Promise<{ id: string }> }) {
   const { id } = await ctx.params;
-  const booking = cancelBooking(id);
+  const booking = await cancelBooking(id);
   if (!booking) return NextResponse.json({ error: "Booking not found" }, { status: 404 });
   return NextResponse.json(toTripView(booking));
 }

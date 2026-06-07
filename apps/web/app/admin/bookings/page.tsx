@@ -7,13 +7,13 @@ export const dynamic = "force-dynamic";
 const eur = (n: number) => "€" + Math.round(n).toLocaleString();
 const fmtDate = (iso: string) => new Date(iso).toLocaleDateString(undefined, { month: "short", day: "numeric" });
 
-export default function AdminBookings() {
-  const bookings = listBookings();
+export default async function AdminBookings() {
+  const bookings = await listBookings();
 
   return (
     <div>
       <h1 className="font-display text-2xl font-bold">Bookings</h1>
-      <p className="mt-1 text-sm text-white/55">{bookings.length} booking{bookings.length === 1 ? "" : "s"} this session. The hidden destination/hotel is shown here for ops — never to the traveler before their reveal.</p>
+      <p className="mt-1 text-sm text-white/55">{bookings.length} booking{bookings.length === 1 ? "" : "s"} total. The hidden destination/hotel is shown here for ops — never to the traveler before their reveal.</p>
 
       {bookings.length === 0 ? (
         <div className="card mt-6 p-8 text-center text-sm text-white/55">

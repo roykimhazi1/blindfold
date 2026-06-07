@@ -79,8 +79,8 @@ export async function POST(req: Request) {
     }
 
     // [4] Persist the booking; record the supplier refs for ops.
-    const booking = createBooking(option, params, deal, { name, email });
-    booking.supplierRefs = booked.orders.map((o) => o.ref);
+    const supplierRefs = booked.orders.map((o) => o.ref);
+    const booking = await createBooking(option, params, deal, { name, email }, supplierRefs);
     return NextResponse.json({ id: booking.id });
   } catch (err) {
     const message = err instanceof Error ? err.message : "Unknown error";
