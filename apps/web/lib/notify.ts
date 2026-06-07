@@ -1,5 +1,12 @@
+import { Resend } from "resend";
 import { CURRENCY_SYMBOL } from "@/lib/trip";
 import { supabaseAdmin } from "@/lib/supabase-server";
+
+function getResend(): Resend | null {
+  return process.env.RESEND_API_KEY ? new Resend(process.env.RESEND_API_KEY) : null;
+}
+
+const FROM_ADDRESS = "Blindfold <trips@blindfold.travel>";
 
 // Notification outbox backed by Supabase. With no email provider configured,
 // messages are recorded in the `outbox` table so they're inspectable in
@@ -96,6 +103,20 @@ export async function enqueueRefundEmail(i: { to: string; name: string; amount: 
 async function push(e: Record<string, string | null>): Promise<void> {
   const id = "em_" + Math.random().toString(36).slice(2, 9);
   await supabaseAdmin.from("outbox").insert({ id, ...e });
+
+  // Send immediately when status is "sent" and Resend is configured.
+  // Queued emails (status="queued") are picked up by the scheduled edge function.
+  if (e.status === "sent" && e.to && e.subject && e.body) {
+    const resend = getResend();
+    if (resend) {
+      await resend.emails.send({
+        from: FROM_ADDRESS,
+        to: e.to,
+        subject: e.subject,
+        text: e.body,
+      });
+    }
+  }
 }
 
 export async function listOutbox(): Promise<OutboxEntry[]> {

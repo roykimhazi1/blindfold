@@ -45,6 +45,8 @@ export interface Booking {
   cancelledAtIso?: string;
   /** Supplier order refs from the booking saga (flight/hotel/attractions). */
   supplierRefs?: string[];
+  /** Stripe PaymentIntent ID — set when checkout used real Stripe. */
+  stripePaymentIntentId?: string;
 }
 
 // ── Row → domain ─────────────────────────────────────────────────────
@@ -85,6 +87,7 @@ function rowToBooking(row: any): Booking {
     refunded: row.refunded != null ? Number(row.refunded) : undefined,
     cancelledAtIso: row.cancelled_at_iso ?? undefined,
     supplierRefs: row.supplier_refs ?? undefined,
+    stripePaymentIntentId: row.stripe_payment_intent_id ?? undefined,
   };
 }
 
@@ -100,7 +103,17 @@ export async function createBooking(
   deal: { id: string; priceTotal: number; currency: string; includes: string[] },
   contact: { name: string; email: string },
   supplierRefs?: string[],
+  stripePaymentIntentId?: string,
 ): Promise<Booking> {
+  // Idempotency: if we already have a booking for this payment intent, return it.
+  if (stripePaymentIntentId) {
+    const { data: existing } = await supabaseAdmin
+      .from("bookings")
+      .select("*, booking_secrets(*)")
+      .eq("stripe_payment_intent_id", stripePaymentIntentId)
+      .maybeSingle();
+    if (existing) return rowToBooking(existing);
+  }
   const { destination: d, components: c } = option;
   const schedule = buildSchedule({
     departureIso: params.dates.start,
@@ -128,6 +141,7 @@ export async function createBooking(
     demo_stage: "booked",
     status: "confirmed",
     supplier_refs: supplierRefs ?? null,
+    stripe_payment_intent_id: stripePaymentIntentId ?? null,
   });
   if (bErr) throw new Error(`Booking insert failed: ${bErr.message}`);
 
@@ -180,6 +194,7 @@ export async function createBooking(
     demoStage: "booked",
     status: "confirmed",
     supplierRefs,
+    stripePaymentIntentId,
   };
 
   await enqueueBookingEmails({
