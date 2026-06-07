@@ -23,7 +23,7 @@ export async function POST(req: Request, ctx: { params: Promise<{ id: string }> 
     return NextResponse.json({ error: "Unknown stage" }, { status: 422 });
   }
 
-  const booking = advanceBooking(id, body.stage as RevealStage);
+  const booking = await advanceBooking(id, body.stage as RevealStage);
   if (!booking) return NextResponse.json({ error: "Booking not found" }, { status: 404 });
 
   return NextResponse.json(toTripView(booking));

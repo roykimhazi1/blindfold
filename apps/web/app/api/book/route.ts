@@ -4,6 +4,7 @@ import { bookBundle } from "@sv/engine";
 import { orchestrateDeals } from "@sv/agents";
 import { decodeParams } from "@/lib/trip";
 import { createBooking } from "@/lib/bookings";
+import { verifyPaymentIntent, stripeEnabled } from "@/lib/stripe";
 
 export const runtime = "nodejs";
 
@@ -11,7 +12,7 @@ export const runtime = "nodejs";
 const PRICE_DELTA_TOLERANCE = 0.005; // 0.5%
 
 /**
- * POST /api/book — { p, dealId, contact, shownTotal?, confirmPriceChange? }
+ * POST /api/book — { p, dealId, contact, shownTotal?, confirmPriceChange?, paymentIntentId? }
  *
  * 1. Re-runs the search from the encoded params (recovers the chosen option +
  *    the *current* price).
@@ -19,11 +20,12 @@ const PRICE_DELTA_TOLERANCE = 0.005; // 0.5%
  *    what the user was shown, return `{ priceChanged, newTotal }` so the client
  *    can confirm before we charge. (No-op in mock mode — prices are
  *    deterministic — but live the instant real suppliers are wired in.)
- * 3. Runs the **booking saga** (`bookBundle`: flight → hotel → attractions,
+ * 3. When Stripe is configured, verifies the PaymentIntent is `succeeded`
+ *    before creating the booking. In demo mode (no Stripe key) this step is skipped.
+ * 4. Runs the **booking saga** (`bookBundle`: flight → hotel → attractions,
  *    compensating on partial failure).
- * 4. Persists the booking (holds the secret server-side) and returns its id.
- *
- * No real payment in the MVP — this stands in for Stripe authorize+capture.
+ * 5. Persists the booking (holds the secret server-side) and returns its id.
+ *    Idempotent by `paymentIntentId` — safe to retry.
  */
 export async function POST(req: Request) {
   let body: {
@@ -32,6 +34,7 @@ export async function POST(req: Request) {
     contact?: { name?: string; email?: string };
     shownTotal?: number;
     confirmPriceChange?: boolean;
+    paymentIntentId?: string;
   };
   try {
     body = await req.json();
@@ -69,7 +72,18 @@ export async function POST(req: Request) {
       }
     }
 
-    // [3] Booking saga — secure all three legs or roll back.
+    // [3] Verify Stripe payment when in Stripe mode.
+    if (stripeEnabled()) {
+      if (!body.paymentIntentId) {
+        return NextResponse.json({ error: "Payment required" }, { status: 402 });
+      }
+      const paid = await verifyPaymentIntent(body.paymentIntentId);
+      if (!paid) {
+        return NextResponse.json({ error: "Payment not confirmed" }, { status: 402 });
+      }
+    }
+
+    // [4] Booking saga — secure all three legs or roll back.
     const booked = await bookBundle(option.components, { bookingId: `${body.dealId}:${email}` });
     if (!booked.ok) {
       return NextResponse.json(
@@ -78,9 +92,9 @@ export async function POST(req: Request) {
       );
     }
 
-    // [4] Persist the booking; record the supplier refs for ops.
-    const booking = createBooking(option, params, deal, { name, email });
-    booking.supplierRefs = booked.orders.map((o) => o.ref);
+    // [5] Persist the booking; record the supplier refs for ops.
+    const supplierRefs = booked.orders.map((o) => o.ref);
+    const booking = await createBooking(option, params, deal, { name, email }, supplierRefs, body.paymentIntentId);
     return NextResponse.json({ id: booking.id });
   } catch (err) {
     const message = err instanceof Error ? err.message : "Unknown error";

@@ -1,9 +1,17 @@
+import { Resend } from "resend";
 import { CURRENCY_SYMBOL } from "@/lib/trip";
+import { supabaseAdmin } from "@/lib/supabase-server";
 
-// Mock notifications "outbox". With no email provider configured, we record the
-// messages we *would* send (booking confirmation now, packing teaser at T-7) so
-// they're inspectable in /admin/outbox. A real Resend/Postmark adapter swaps in
-// behind enqueue() later. Every body here is leak-safe — never names the place.
+function getResend(): Resend | null {
+  return process.env.RESEND_API_KEY ? new Resend(process.env.RESEND_API_KEY) : null;
+}
+
+const FROM_ADDRESS = "Blindfold <trips@blindfold.travel>";
+
+// Notification outbox backed by Supabase. With no email provider configured,
+// messages are recorded in the `outbox` table so they're inspectable in
+// /admin/outbox. A real Resend/Postmark adapter swaps in behind enqueue() later.
+// Every body here is leak-safe — never names the place.
 
 export type EmailKind = "confirmation" | "teaser" | "refund";
 
@@ -17,10 +25,6 @@ export interface OutboxEntry {
   scheduledForIso: string;
   createdAtIso: string;
 }
-
-type Outbox = OutboxEntry[];
-const g = globalThis as unknown as { __outbox?: Outbox };
-const outbox: Outbox = (g.__outbox ??= []);
 
 export interface BookingEmailInput {
   bookingId: string;
@@ -36,17 +40,18 @@ export interface BookingEmailInput {
   teaserAtMs: number;
 }
 
-export function enqueueBookingEmails(i: BookingEmailInput): void {
+export async function enqueueBookingEmails(i: BookingEmailInput): Promise<void> {
   const sym = CURRENCY_SYMBOL[i.currency] ?? "";
   const first = i.name.split(" ")[0] || "there";
   const now = new Date().toISOString();
 
-  push({
+  await push({
+    booking_id: i.bookingId,
     to: i.to,
     kind: "confirmation",
     status: "sent",
-    scheduledForIso: now,
-    createdAtIso: now,
+    scheduled_for_iso: now,
+    created_at_iso: now,
     subject: "You're booked — somewhere good is waiting 🎁",
     body:
       `Hi ${first},\n\n` +
@@ -59,12 +64,13 @@ export function enqueueBookingEmails(i: BookingEmailInput): void {
       `Sit back. We've got the rest.\n— Blindfold`,
   });
 
-  push({
+  await push({
+    booking_id: i.bookingId,
     to: i.to,
     kind: "teaser",
     status: "queued",
-    scheduledForIso: new Date(i.teaserAtMs).toISOString(),
-    createdAtIso: now,
+    scheduled_for_iso: new Date(i.teaserAtMs).toISOString(),
+    created_at_iso: now,
     subject: "One week to go — here's how to pack 🧳",
     body:
       `Hi ${first},\n\n` +
@@ -75,16 +81,16 @@ export function enqueueBookingEmails(i: BookingEmailInput): void {
   });
 }
 
-export function enqueueRefundEmail(i: { to: string; name: string; amount: number; currency: string }): void {
+export async function enqueueRefundEmail(i: { to: string; name: string; amount: number; currency: string }): Promise<void> {
   const sym = CURRENCY_SYMBOL[i.currency] ?? "";
   const first = i.name.split(" ")[0] || "there";
   const now = new Date().toISOString();
-  push({
+  await push({
     to: i.to,
     kind: "refund",
     status: "sent",
-    scheduledForIso: now,
-    createdAtIso: now,
+    scheduled_for_iso: now,
+    created_at_iso: now,
     subject: "Refund on its way — no hard feelings 💛",
     body:
       `Hi ${first},\n\n` +
@@ -94,10 +100,39 @@ export function enqueueRefundEmail(i: { to: string; name: string; amount: number
   });
 }
 
-function push(e: Omit<OutboxEntry, "id">): void {
-  outbox.unshift({ id: "em_" + Math.random().toString(36).slice(2, 9), ...e });
+async function push(e: Record<string, string | null>): Promise<void> {
+  const id = "em_" + Math.random().toString(36).slice(2, 9);
+  await supabaseAdmin.from("outbox").insert({ id, ...e });
+
+  // Send immediately when status is "sent" and Resend is configured.
+  // Queued emails (status="queued") are picked up by the scheduled edge function.
+  if (e.status === "sent" && e.to && e.subject && e.body) {
+    const resend = getResend();
+    if (resend) {
+      await resend.emails.send({
+        from: FROM_ADDRESS,
+        to: e.to,
+        subject: e.subject,
+        text: e.body,
+      });
+    }
+  }
 }
 
-export function listOutbox(): OutboxEntry[] {
-  return outbox;
+export async function listOutbox(): Promise<OutboxEntry[]> {
+  const { data } = await supabaseAdmin
+    .from("outbox")
+    .select("id, to, kind, subject, body, status, scheduled_for_iso, created_at_iso")
+    .order("inserted_at", { ascending: false });
+  if (!data) return [];
+  return data.map((r) => ({
+    id: r.id,
+    to: r.to,
+    kind: r.kind as EmailKind,
+    subject: r.subject,
+    body: r.body,
+    status: r.status as "sent" | "queued",
+    scheduledForIso: r.scheduled_for_iso,
+    createdAtIso: r.created_at_iso,
+  }));
 }

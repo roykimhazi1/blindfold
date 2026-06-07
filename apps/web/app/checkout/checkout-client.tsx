@@ -205,6 +205,7 @@ export function CheckoutClient() {
             email={email}
             dealId={dealId}
             p={p}
+            clientSecret={clientSecret}
           />
         </Elements>
       )}
@@ -220,7 +221,7 @@ export function CheckoutClient() {
 }
 
 function StripePaymentForm({
-  price, sym, name, email, dealId, p,
+  price, sym, name, email, dealId, p, clientSecret,
 }: {
   price: number;
   sym: string;
@@ -228,6 +229,7 @@ function StripePaymentForm({
   email: string;
   dealId: string;
   p: string;
+  clientSecret: string;
 }) {
   const stripe = useStripe();
   const elements = useElements();
@@ -259,12 +261,13 @@ function StripePaymentForm({
       return;
     }
 
-    // Payment confirmed — create the booking
+    // Payment confirmed — create the booking (pass PI ID for server-side verification)
+    const paymentIntentId = clientSecret.split("_secret_")[0];
     try {
       const res = await fetch("/api/book", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ p, dealId, contact: { name, email } }),
+        body: JSON.stringify({ p, dealId, contact: { name, email }, paymentIntentId }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Booking failed");

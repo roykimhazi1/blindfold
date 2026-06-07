@@ -9,8 +9,8 @@ export const dynamic = "force-dynamic";
 
 const eur = (n: number) => "€" + Math.round(n).toLocaleString();
 
-export default function AdminDashboard() {
-  const bookings = listBookings();
+export default async function AdminDashboard() {
+  const bookings = await listBookings();
   const active = bookings.filter((b) => b.status === "confirmed");
   const gross = active.reduce((s, b) => s + b.breakdownEur.total, 0);
   const profit = active.reduce((s, b) => s + b.breakdownEur.margin + b.breakdownEur.serviceFee, 0);
@@ -27,7 +27,7 @@ export default function AdminDashboard() {
   return (
     <div>
       <h1 className="font-display text-2xl font-bold">Dashboard</h1>
-      <p className="mt-1 text-sm text-white/55">A live snapshot of this demo session (bookings live in memory).</p>
+      <p className="mt-1 text-sm text-white/55">A live snapshot — bookings are persisted in Supabase.</p>
 
       <div className="mt-6 grid grid-cols-2 gap-4 lg:grid-cols-4">
         {KPIS.map((k) => (
