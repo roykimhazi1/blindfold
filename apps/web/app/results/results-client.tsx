@@ -21,10 +21,10 @@ const LOADING_LINES = [
 ];
 
 const CLIMATE = {
-  cold: { Icon: Snow, label: "Cold", photo: PHOTOS.mountainLake },
-  mild: { Icon: Sun, label: "Mild", photo: PHOTOS.mistyHills },
-  warm: { Icon: Sun, label: "Warm", photo: PHOTOS.beach },
-  hot: { Icon: Sun, label: "Hot", photo: PHOTOS.desertRoad },
+  cold: { Icon: Snow, label: "Cold",    photo: PHOTOS.skiing },
+  mild: { Icon: Sun,  label: "Mild",    photo: PHOTOS.mistyHills },
+  warm: { Icon: Sun,  label: "Warm",    photo: PHOTOS.beachPeople },
+  hot:  { Icon: Sun,  label: "Hot",     photo: PHOTOS.poolLuxury },
 } as const;
 
 const VIBE_ICON: Record<VibeType, typeof Umbrella> = {

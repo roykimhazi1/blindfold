@@ -84,6 +84,8 @@ const GENERIC_LANDMARK_WORDS = new Set([
   "palace", "castle", "tour", "town", "old", "city", "museum", "museums",
   "beach", "sea", "river", "cruise", "walk", "park", "day", "trip", "food",
   "evening", "dinner", "wine", "region", "tasting", "guided", "visit",
+  "history", "square", "avenue", "market", "complex", "temple", "church",
+  "gardens", "island", "canal", "bridge", "quarter", "district", "village",
 ]);
 
 function escapeRegex(s: string): string {
