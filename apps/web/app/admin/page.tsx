@@ -27,7 +27,7 @@ export default async function AdminDashboard() {
   return (
     <div>
       <h1 className="font-display text-2xl font-bold">Dashboard</h1>
-      <p className="mt-1 text-sm text-white/55">A live snapshot — bookings are persisted in Supabase.</p>
+      <p className="mt-1 text-sm text-white/55">A live snapshot across all bookings (persisted in Supabase).</p>
 
       <div className="mt-6 grid grid-cols-2 gap-4 lg:grid-cols-4">
         {KPIS.map((k) => (

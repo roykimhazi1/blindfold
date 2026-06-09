@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { getBooking } from "@/lib/bookings";
 import { toTripView } from "@/lib/trip-view";
+import { getSession, canAccessBooking } from "@/lib/auth";
 import { TripClient } from "./trip-client";
 import { Compass } from "@/components/icons";
 
@@ -9,7 +10,11 @@ export const dynamic = "force-dynamic";
 
 export default async function TripPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const booking = await getBooking(id);
+  const session = await getSession();
+  const found = await getBooking(id);
+  // Owner-or-admin only — others get the same "can't find it" screen (no leak
+  // that the trip exists). The service-role read bypasses RLS, so guard here.
+  const booking = found && canAccessBooking(session, found.userId) ? found : undefined;
 
   return (
     <div className="aurora relative min-h-[calc(100dvh-65px)]">

@@ -20,7 +20,7 @@ const stripePromise =
     ? loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY)
     : null;
 
-export function CheckoutClient() {
+export function CheckoutClient({ defaultName = "", defaultEmail = "" }: { defaultName?: string; defaultEmail?: string }) {
   const router = useRouter();
   const sp = useSearchParams();
   const dealId = sp.get("deal") ?? "";
@@ -29,8 +29,8 @@ export function CheckoutClient() {
   const cur = sp.get("cur") ?? "EUR";
   const sym = CURRENCY_SYMBOL[cur] ?? "";
 
-  const [name, setName] = useState("");
-  const [email, setEmail] = useState("");
+  const [name, setName] = useState(defaultName);
+  const [email, setEmail] = useState(defaultEmail);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [confirm, setConfirm] = useState<{ newTotal: number } | null>(null);

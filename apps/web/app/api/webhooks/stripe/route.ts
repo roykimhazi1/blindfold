@@ -13,10 +13,8 @@ export const runtime = "nodejs";
  *
  * Handles `payment_intent.succeeded` from Stripe. This is the durable path —
  * if the browser closed between payment confirmation and the `/api/book` call,
- * the webhook still creates the booking.
- *
- * Idempotent: `createBooking` checks for an existing booking by PI ID and
- * returns it unchanged if one already exists, so double-delivery is safe.
+ * the webhook still creates the booking from the PaymentIntent metadata
+ * (which carries the signed-in user id set at checkout-session time).
  */
 export async function POST(req: Request) {
   const stripe = getStripe();
@@ -42,11 +40,11 @@ export async function POST(req: Request) {
   }
 
   const intent = event.data.object;
-  const { p, dealId, name, email } = intent.metadata as {
-    p?: string; dealId?: string; name?: string; email?: string;
+  const { p, dealId, name, email, userId } = intent.metadata as {
+    p?: string; dealId?: string; name?: string; email?: string; userId?: string;
   };
 
-  if (!p || !dealId || !name || !email) {
+  if (!p || !dealId || !name || !email || !userId) {
     // Intent wasn't created by this app's checkout flow — ignore.
     return NextResponse.json({ received: true });
   }
@@ -70,6 +68,7 @@ export async function POST(req: Request) {
       params,
       deals[idx]!,
       { name, email },
+      userId,
       supplierRefs,
       intent.id,
     );

@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { getStripe } from "@/lib/stripe";
+import { getSession } from "@/lib/auth";
 
 export const runtime = "nodejs";
 
@@ -33,6 +34,13 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Missing required fields" }, { status: 422 });
   }
 
+  // Account-first: a booking must belong to a signed-in user. Carry the user id
+  // in the PaymentIntent metadata so the durable webhook path can persist it.
+  const { user } = await getSession();
+  if (!user) {
+    return NextResponse.json({ error: "Please sign in to book." }, { status: 401 });
+  }
+
   // Amount in Stripe must be in smallest currency unit (cents/agora).
   const amountCents = Math.round(amount * 100);
 
@@ -47,6 +55,7 @@ export async function POST(req: Request) {
         p,
         name,
         email,
+        userId: user.id,
       },
       description: "Blindfold surprise trip",
       receipt_email: email,

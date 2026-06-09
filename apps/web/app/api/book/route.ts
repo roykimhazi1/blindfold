@@ -5,6 +5,7 @@ import { orchestrateDeals } from "@sv/agents";
 import { decodeParams } from "@/lib/trip";
 import { createBooking } from "@/lib/bookings";
 import { verifyPaymentIntent, stripeEnabled } from "@/lib/stripe";
+import { getSession } from "@/lib/auth";
 
 export const runtime = "nodejs";
 
@@ -40,6 +41,12 @@ export async function POST(req: Request) {
     body = await req.json();
   } catch {
     return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
+  }
+
+  // Account-first: a booking must belong to a signed-in user.
+  const { user } = await getSession();
+  if (!user) {
+    return NextResponse.json({ error: "Please sign in to book." }, { status: 401 });
   }
 
   const params: TripParams | null = body.p ? decodeParams(body.p) : null;
@@ -92,9 +99,10 @@ export async function POST(req: Request) {
       );
     }
 
-    // [5] Persist the booking; record the supplier refs for ops.
+    // [5] Persist the booking (tied to the user; secret held server-side);
+    //     record the supplier refs for ops.
     const supplierRefs = booked.orders.map((o) => o.ref);
-    const booking = await createBooking(option, params, deal, { name, email }, supplierRefs, body.paymentIntentId);
+    const booking = await createBooking(option, params, deal, { name, email }, user.id, supplierRefs, body.paymentIntentId);
     return NextResponse.json({ id: booking.id });
   } catch (err) {
     const message = err instanceof Error ? err.message : "Unknown error";
