@@ -139,7 +139,7 @@ function addDays(d: string, days: number): string {
   return new Date(t + days * 86400000).toISOString().slice(0, 10);
 }
 
-export function WizardClient() {
+export function WizardClient({ defaultNationality = "IL" }: { defaultNationality?: string }) {
   const router = useRouter();
   const [phase, setPhase] = useState<Phase>("level");
   const [level, setLevel] = useState<Level>("blackout");
@@ -232,13 +232,13 @@ export function WizardClient() {
       hotel: wantsDetail ? { minStars, board, roomType: "double" } : undefined,
       constraints: wantsDetail
         ? {
-            nationality: "IL",
+            nationality: defaultNationality,
             maxFlightHours: maxFlightHours === "" ? undefined : Number(maxFlightHours),
             avoidRegions: avoidRegions.length ? avoidRegions : undefined,
             directOnly: directOnly || undefined,
             avoidRedeye: avoidRedeye || undefined,
           }
-        : { nationality: "IL" },
+        : { nationality: defaultNationality },
       occasion: occasion ?? undefined,
       mustNail: wantsMood ? (mustNail ?? undefined) : undefined,
       surpriseIntensity: activeLevel.intensity,

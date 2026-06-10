@@ -8,7 +8,7 @@ import { CURRENCY_SYMBOL } from "@/lib/trip";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import {
   Gift, Suitcase, Unlock, Lock, Car, Plane, MapPin, Building, Star, Ticket,
-  Mail, Check, Sparkles, ArrowRight, Clock,
+  Mail, Check, Sparkles, ArrowRight, Clock, Users,
 } from "@/components/icons";
 
 const FF: { stage: RevealStage; label: string }[] = [
@@ -151,6 +151,18 @@ export function TripClient({ initial }: { initial: TripView }) {
               <li key={i} className="flex gap-2"><Check size={16} className="mt-0.5 shrink-0 text-mint-400" /> {i}</li>
             ))}
           </ul>
+          {view.passengers && view.passengers.length > 0 && (
+            <div className="mt-4">
+              <div className="mb-1.5 inline-flex items-center gap-1.5 text-sm font-medium"><Users size={16} className="text-brand-300" /> Who&apos;s coming</div>
+              <div className="flex flex-wrap gap-1.5">
+                {view.passengers.map((p, i) => (
+                  <span key={i} className="rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-xs text-white/75">
+                    {p.givenName} {p.familyName.slice(0, 1)}.
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
         </Stage>
 
         {/* future stages hidden once cancelled */}

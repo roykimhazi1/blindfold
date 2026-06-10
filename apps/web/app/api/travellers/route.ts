@@ -49,6 +49,7 @@ export async function POST(req: Request) {
       date_of_birth: body.dateOfBirth!,
       gender: body.gender!,
       nationality: body.nationality!.trim().toUpperCase(),
+      citizen_id: body.citizenId?.trim() || null,
       passport_number: body.passportNumber!.trim().toUpperCase(),
       passport_expiry: body.passportExpiry!,
       passport_issuing_country: body.passportIssuingCountry!.trim().toUpperCase(),

@@ -65,6 +65,22 @@ const mockFlights = {
       totalPrice: round2(perPax * pax),
     };
   },
+
+  // A short ranked list of round-trips for the Flight specialist to choose
+  // among. The base quote is the cheapest; alternatives (other carriers) are
+  // pricier — so the deterministic cheapest-pick equals `quote`.
+  async search(dest: Destination, params: TripParams): Promise<FlightQuote[]> {
+    const base = await mockFlights.quote(dest, params);
+    if (!base) return [];
+    const carriers = ["Wizz Air", "ITA Airways", "Aegean", "Austrian", "Israir"];
+    const pick0 = Math.floor(seededRange(`car:${dest.id}`, 0, carriers.length));
+    const alts: FlightQuote[] = [1.18, 1.34].map((mult, i) => ({
+      ...base,
+      carrier: carriers[(pick0 + i + 1) % carriers.length]!,
+      totalPrice: round2(base.totalPrice * mult),
+    }));
+    return [base, ...alts];
+  },
 };
 
 const mockHotels = {
@@ -96,6 +112,16 @@ const mockHotels = {
       nights,
       totalPrice: round2(nightly * nights * rooms),
     };
+  },
+
+  // Base stay (cheapest) plus a star upgrade and a board bump for the Hotel
+  // specialist to weigh against its envelope.
+  async search(dest: Destination, params: TripParams): Promise<HotelQuote[]> {
+    const base = await mockHotels.quote(dest, params);
+    if (!base) return [];
+    const upgrade: HotelQuote = { ...base, stars: Math.min(5, base.stars + 1), totalPrice: round2(base.totalPrice * 1.32) };
+    const boardUp: HotelQuote = { ...base, board: "half_board", totalPrice: round2(base.totalPrice * 1.5) };
+    return [base, upgrade, boardUp];
   },
 };
 
@@ -131,6 +157,18 @@ const mockAttractions = {
       items: chosen.items,
       totalPrice: round2(chosen.pricePerPerson * pax),
     };
+  },
+
+  // Best-vibe package leads (so the deterministic first-pick equals `quote`);
+  // the remaining packages are alternatives for the Attractions curator.
+  async search(dest: Destination, params: TripParams): Promise<AttractionQuote[]> {
+    const base = await mockAttractions.quote(dest, params);
+    if (!base) return [];
+    const pax = partySize(params.travelers.adults, params.travelers.childrenAges);
+    const others: AttractionQuote[] = dest.attractionPackages
+      .filter((p) => p.id !== base.packageId)
+      .map((p) => ({ destinationId: dest.id, packageId: p.id, items: p.items, totalPrice: round2(p.pricePerPerson * pax) }));
+    return [base, ...others];
   },
 };
 

@@ -16,6 +16,8 @@ export interface SavedTraveller {
   dateOfBirth: string;
   gender: Gender;
   nationality: string;
+  /** National identity number (citizen ID). Optional — "" when unset. */
+  citizenId: string;
   passportNumber: string;
   passportExpiry: string;
   passportIssuingCountry: string;
@@ -30,6 +32,7 @@ export function rowToTraveller(r: TravellerRow): SavedTraveller {
     dateOfBirth: r.date_of_birth,
     gender: r.gender as Gender,
     nationality: r.nationality,
+    citizenId: r.citizen_id ?? "",
     passportNumber: r.passport_number,
     passportExpiry: r.passport_expiry,
     passportIssuingCountry: r.passport_issuing_country,

@@ -123,6 +123,24 @@ function mockLess(): LlmClient {
   return { mode: "mock", async complete() { return ""; } };
 }
 
+/**
+ * The offers a specialist may choose among: a provider's ranked `search` list
+ * when available, otherwise its single `quote` wrapped in an array. Keeps mock
+ * mode and not-yet-`search`-capable live providers working unchanged.
+ */
+async function offersFor<Q>(
+  provider: {
+    search?: (dest: Destination, params: TripParams) => Promise<Q[]>;
+    quote: (dest: Destination, params: TripParams) => Promise<Q | null>;
+  },
+  dest: Destination,
+  params: TripParams,
+): Promise<Q[]> {
+  if (provider.search) return provider.search(dest, params);
+  const q = await provider.quote(dest, params);
+  return q ? [q] : [];
+}
+
 // ── Flight ───────────────────────────────────────────────────────────
 export async function chooseFlight(
   dest: Destination,
@@ -131,8 +149,7 @@ export async function chooseFlight(
   providers: Providers,
   llm?: LlmClient,
 ): Promise<FlightChoice | null> {
-  const quote = await providers.flights.quote(dest, params);
-  const quotes = quote ? [quote] : [];
+  const quotes = await offersFor(providers.flights, dest, params);
   return runSpecialist<FlightQuote>(llm, {
     domain: "flight",
     searchToolName: "search_flights",
@@ -167,8 +184,7 @@ export async function chooseHotel(
   providers: Providers,
   llm?: LlmClient,
 ): Promise<HotelChoice | null> {
-  const quote = await providers.hotels.quote(dest, params);
-  const quotes = quote ? [quote] : [];
+  const quotes = await offersFor(providers.hotels, dest, params);
   return runSpecialist<HotelQuote>(llm, {
     domain: "hotel",
     searchToolName: "search_hotels",
@@ -201,8 +217,7 @@ export async function chooseAttractions(
   providers: Providers,
   llm?: LlmClient,
 ): Promise<AttractionChoice | null> {
-  const quote = await providers.attractions.quote(dest, params);
-  const quotes = quote ? [quote] : [];
+  const quotes = await offersFor(providers.attractions, dest, params);
   return runSpecialist<AttractionQuote>(llm, {
     domain: "attractions",
     searchToolName: "search_activities",

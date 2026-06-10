@@ -260,6 +260,7 @@ export type Database = {
       }
       profiles: {
         Row: {
+          citizen_id: string | null
           created_at: string
           email: string | null
           full_name: string | null
@@ -267,6 +268,7 @@ export type Database = {
           is_admin: boolean
         }
         Insert: {
+          citizen_id?: string | null
           created_at?: string
           email?: string | null
           full_name?: string | null
@@ -274,6 +276,7 @@ export type Database = {
           is_admin?: boolean
         }
         Update: {
+          citizen_id?: string | null
           created_at?: string
           email?: string | null
           full_name?: string | null
@@ -284,6 +287,7 @@ export type Database = {
       }
       travellers: {
         Row: {
+          citizen_id: string | null
           created_at: string
           date_of_birth: string
           family_name: string
@@ -299,6 +303,7 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          citizen_id?: string | null
           created_at?: string
           date_of_birth: string
           family_name: string
@@ -314,6 +319,7 @@ export type Database = {
           user_id: string
         }
         Update: {
+          citizen_id?: string | null
           created_at?: string
           date_of_birth?: string
           family_name?: string
