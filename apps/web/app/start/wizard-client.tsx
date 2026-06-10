@@ -168,6 +168,8 @@ export function WizardClient({ defaultNationality = "IL" }: { defaultNationality
   const [avoidRegions, setAvoidRegions] = useState<string[]>([]);
   const [directOnly, setDirectOnly] = useState(false);
   const [avoidRedeye, setAvoidRedeye] = useState(false);
+  const [checkedLuggage, setCheckedLuggage] = useState(false);
+  const [avoidDestinations, setAvoidDestinations] = useState("");
 
   const activeLevel = LEVELS.find((l) => l.id === level)!;
   const steps = STEPS_BY_LEVEL[level];
@@ -235,8 +237,12 @@ export function WizardClient({ defaultNationality = "IL" }: { defaultNationality
             nationality: defaultNationality,
             maxFlightHours: maxFlightHours === "" ? undefined : Number(maxFlightHours),
             avoidRegions: avoidRegions.length ? avoidRegions : undefined,
+            avoidDestinations: avoidDestinations.trim()
+              ? avoidDestinations.split(",").map((s) => s.trim()).filter(Boolean)
+              : undefined,
             directOnly: directOnly || undefined,
             avoidRedeye: avoidRedeye || undefined,
+            checkedLuggage: checkedLuggage || undefined,
           }
         : { nationality: defaultNationality },
       occasion: occasion ?? undefined,
@@ -545,6 +551,7 @@ export function WizardClient({ defaultNationality = "IL" }: { defaultNationality
                 </div>
                 <Toggle label="Direct flights only" value={directOnly} onChange={setDirectOnly} />
                 <Toggle label="No harsh red-eyes (very early or late-night)" value={avoidRedeye} onChange={setAvoidRedeye} />
+                <Toggle label="Travelling with a checked bag?" value={checkedLuggage} onChange={setCheckedLuggage} />
                 <div>
                   <label className="text-sm text-white/60">Been there, or just not feeling it?</label>
                   <div className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-3">
@@ -556,6 +563,17 @@ export function WizardClient({ defaultNationality = "IL" }: { defaultNationality
                     ))}
                   </div>
                   <p className="mt-2 text-xs text-white/45">We'll steer your surprise away from anywhere you tap.</p>
+                </div>
+                <div>
+                  <label htmlFor="avoid-dest" className="text-sm text-white/60">Anywhere specific you&apos;d rather skip? (optional)</label>
+                  <input
+                    id="avoid-dest"
+                    value={avoidDestinations}
+                    onChange={(e) => setAvoidDestinations(e.target.value)}
+                    placeholder="e.g. Dubai, Paris"
+                    className="mt-2 w-full rounded-2xl border border-white/15 bg-white/5 px-4 py-3 outline-none focus:border-brand-400"
+                  />
+                  <p className="mt-2 text-xs text-white/45">Cities or countries, comma-separated — we&apos;ll never send you there.</p>
                 </div>
                 <p className="flex items-center gap-2 text-xs text-white/45">
                   <Heart size={13} className="text-brand-300" />
