@@ -1,10 +1,13 @@
 import { NextResponse } from "next/server";
-import type { TripParams } from "@sv/engine";
+import type { TripParams, PassengerIdentity } from "@sv/engine";
 import { bookBundle } from "@sv/engine";
 import { orchestrateDeals } from "@sv/agents";
 import { decodeParams } from "@/lib/trip";
 import { createBooking } from "@/lib/bookings";
 import { verifyPaymentIntent, stripeEnabled } from "@/lib/stripe";
+import { getSession } from "@/lib/auth";
+import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { isPassengerValid, passportValidThrough, normalizePassenger } from "@/lib/passenger";
 
 export const runtime = "nodejs";
 
@@ -32,6 +35,8 @@ export async function POST(req: Request) {
     p?: string;
     dealId?: string;
     contact?: { name?: string; email?: string };
+    travellers?: PassengerIdentity[];
+    sourceTravellerIds?: (string | null)[];
     shownTotal?: number;
     confirmPriceChange?: boolean;
     paymentIntentId?: string;
@@ -40,6 +45,12 @@ export async function POST(req: Request) {
     body = await req.json();
   } catch {
     return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
+  }
+
+  // Account-first: a booking must belong to a signed-in user.
+  const { user } = await getSession();
+  if (!user) {
+    return NextResponse.json({ error: "Please sign in to book." }, { status: 401 });
   }
 
   const params: TripParams | null = body.p ? decodeParams(body.p) : null;
@@ -51,6 +62,38 @@ export async function POST(req: Request) {
   if (!name || !email) {
     return NextResponse.json({ error: "Please add a name and email" }, { status: 422 });
   }
+
+  // Passenger identities — one per traveller in the party. Validated here as the
+  // authoritative gate (never trust the client): right count, complete fields,
+  // and a passport that's still valid on the return date.
+  const expectedCount = params.travelers.adults + params.travelers.childrenAges.length;
+  const travellers = Array.isArray(body.travellers) ? body.travellers : [];
+  if (travellers.length !== expectedCount) {
+    return NextResponse.json(
+      { error: `Please add passport details for all ${expectedCount} traveller${expectedCount === 1 ? "" : "s"}.` },
+      { status: 422 },
+    );
+  }
+  const returnIso = (() => {
+    const d = new Date(params.dates.start + "T00:00:00Z");
+    d.setUTCDate(d.getUTCDate() + params.dates.nights);
+    return d.toISOString();
+  })();
+  for (const t of travellers) {
+    if (t?.type !== "adult" && t?.type !== "child" && t?.type !== "infant") {
+      return NextResponse.json({ error: "Invalid traveller type." }, { status: 422 });
+    }
+    if (!isPassengerValid(t)) {
+      return NextResponse.json({ error: "Some traveller details are incomplete." }, { status: 422 });
+    }
+    if (!passportValidThrough(t.passportExpiry, returnIso)) {
+      return NextResponse.json(
+        { error: "A passport expires before your return date — please check the details." },
+        { status: 422 },
+      );
+    }
+  }
+  const passengers = travellers.map(normalizePassenger);
 
   try {
     const { deals, options } = await orchestrateDeals(params);
@@ -92,9 +135,25 @@ export async function POST(req: Request) {
       );
     }
 
-    // [5] Persist the booking; record the supplier refs for ops.
+    // [5] Persist the booking (tied to the user; secret held server-side);
+    //     record the supplier refs for ops.
     const supplierRefs = booked.orders.map((o) => o.ref);
-    const booking = await createBooking(option, params, deal, { name, email }, supplierRefs, body.paymentIntentId);
+
+    // Link each passenger snapshot back to the saved traveller it was filled
+    // from (when one was used). Validate ownership against the user's own rows so
+    // a stale/foreign id can't fail the booking on the FK or mis-link a stranger.
+    let sourceTravellerIds: (string | null)[] | undefined;
+    if (Array.isArray(body.sourceTravellerIds) && body.sourceTravellerIds.some(Boolean)) {
+      const supa = await createSupabaseServerClient();
+      const { data: owned } = await supa.from("travellers").select("id");
+      const ownedIds = new Set((owned ?? []).map((r) => r.id));
+      sourceTravellerIds = passengers.map((_, i) => {
+        const id = body.sourceTravellerIds?.[i] ?? null;
+        return id && ownedIds.has(id) ? id : null;
+      });
+    }
+
+    const booking = await createBooking(option, params, deal, { name, email }, passengers, user.id, supplierRefs, body.paymentIntentId, sourceTravellerIds);
     return NextResponse.json({ id: booking.id });
   } catch (err) {
     const message = err instanceof Error ? err.message : "Unknown error";

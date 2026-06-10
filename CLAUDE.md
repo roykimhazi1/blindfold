@@ -51,14 +51,16 @@ After a user picks a deal, the **progressive reveal** kicks in (the product's si
 
 - `packages/engine/src/reveal.ts` — pure state machine: `buildSchedule()` + `stageAt()` compute the
   stage (`booked → teaser → gate → arrival → complete`) from departure/return dates and `now`.
-- `apps/web/lib/bookings.ts` — in-memory booking store (on `globalThis`; no DB in the MVP). Holds the
-  **secret** (real city/hotel) server-side.
+- `apps/web/lib/bookings.ts` — Supabase-backed booking store via the service-role client. The
+  client-safe row lives in `bookings`; the **secret** (real city/hotel) lives in the RLS-locked
+  `booking_secrets`; the **passenger passport snapshot** lives in the RLS-locked `booking_passengers`.
 - `apps/web/lib/trip-view.ts` — `toTripView()` projects a booking to a client-safe shape that **only
   includes secret fields the current stage has earned** (destination at `gate`, hotel/driver at
   `arrival`). The server never ships the secret early.
-- APIs: `POST /api/book` (recompute the chosen deal → persist booking), `POST /api/trip/[id]/advance`
-  (the demo "time machine" fast-forwards the reveal). Trip UI: `app/trip/[id]` with a countdown,
-  staged reveal cards, and the sealed-reveal overlay.
+- APIs: `POST /api/book` (recompute the chosen deal, **validate per-traveller passport details**, then
+  persist booking + passenger snapshot), `POST /api/trip/[id]/advance` (the demo "time machine"
+  fast-forwards the reveal). Trip UI: `app/trip/[id]` with a countdown, staged reveal cards, and the
+  sealed-reveal overlay.
 
 ### Guardrails (do not weaken)
 - **Agents find, code does the math.** Prices are computed deterministically in `pricing.ts`,
@@ -66,6 +68,9 @@ After a user picks a deal, the **progressive reveal** kicks in (the product's si
 - **Leak-check.** No user-facing copy may name the destination. `findLeaks` (own destination) +
   `findCatalogLeaks` (every operable city) run on all hints/teasers; matching is **whole-word**
   (so "Cape" never trips on "es**cape**"). `assertNoLeaks` throws if violated.
+- **Passport PII stays locked.** Per-traveller passport data lives only in the RLS-locked
+  `booking_passengers` / per-user `travellers` tables — never in the client-safe `bookings` row, the
+  URL, or Stripe metadata.
 
 ## Conventions
 

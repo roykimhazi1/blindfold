@@ -1,10 +1,11 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { stageAtLeast, type RevealStage } from "@sv/engine";
 import type { TripView } from "@/lib/trip-view";
 import { CURRENCY_SYMBOL } from "@/lib/trip";
+import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import {
   Gift, Suitcase, Unlock, Lock, Car, Plane, MapPin, Building, Star, Ticket,
   Mail, Check, Sparkles, ArrowRight, Clock,
@@ -25,6 +26,42 @@ export function TripClient({ initial }: { initial: TripView }) {
   const hadDestination = useRef(!!initial.destination);
   const sym = CURRENCY_SYMBOL[view.currency] ?? "";
 
+  // Apply a fresh TripView (from advance or a Realtime re-fetch), firing the
+  // sealed-reveal overlay the first time the destination becomes visible.
+  const applyView = useCallback((next: TripView) => {
+    if (next.destination && !hadDestination.current) {
+      hadDestination.current = true;
+      setReveal(true);
+    }
+    setView(next);
+  }, []);
+
+  // Realtime: when this booking's row changes (advance/cancel — including from
+  // another device), re-fetch the *gated* TripView from the server. The secret
+  // is never in the Realtime payload; only the server reveals what the stage
+  // has earned.
+  useEffect(() => {
+    const supabase = createSupabaseBrowserClient();
+    const channel = supabase
+      .channel(`booking:${initial.id}`)
+      .on(
+        "postgres_changes",
+        { event: "UPDATE", schema: "public", table: "bookings", filter: `id=eq.${initial.id}` },
+        async () => {
+          try {
+            const res = await fetch(`/api/trip/${initial.id}`);
+            if (res.ok) applyView(await res.json());
+          } catch {
+            // transient — the next event (or a manual advance) will resync
+          }
+        },
+      )
+      .subscribe();
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [initial.id, applyView]);
+
   async function advance(stage: RevealStage) {
     if (busy) return;
     setBusy(stage);
@@ -33,13 +70,7 @@ export function TripClient({ initial }: { initial: TripView }) {
         method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ stage }),
       });
       const next: TripView = await res.json();
-      if (res.ok) {
-        if (next.destination && !hadDestination.current) {
-          hadDestination.current = true;
-          setReveal(true);
-        }
-        setView(next);
-      }
+      if (res.ok) applyView(next);
     } finally {
       setBusy(null);
     }

@@ -1,4 +1,6 @@
 import Link from "next/link";
+import { redirect, notFound } from "next/navigation";
+import { getSession } from "@/lib/auth";
 import { Compass, Wallet, Building, Gift, Sparkles, Mail } from "@/components/icons";
 
 const NAV = [
@@ -10,7 +12,13 @@ const NAV = [
   { href: "/admin/agent-runs", label: "Agent runs", Icon: Sparkles },
 ];
 
-export default function AdminLayout({ children }: { children: React.ReactNode }) {
+export default async function AdminLayout({ children }: { children: React.ReactNode }) {
+  // Gate every /admin/* page: signed-in admins only. Non-admins get a 404 (so
+  // we don't even advertise that an admin console exists).
+  const { user, isAdmin } = await getSession();
+  if (!user) redirect("/login?next=/admin");
+  if (!isAdmin) notFound();
+
   return (
     <div className="mx-auto flex max-w-6xl flex-col gap-6 px-5 py-8 md:flex-row">
       <aside className="md:w-56 md:shrink-0">

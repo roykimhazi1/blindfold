@@ -81,6 +81,29 @@ export interface TripParams {
   mustNail?: Priority;
 }
 
+// ── Passenger identity (booking-time) ────────────────────────────────
+
+export type Gender = "m" | "f" | "x";
+export type PassengerType = "adult" | "child" | "infant";
+
+/**
+ * Passport-grade identity for one traveller — needed to ticket a real flight.
+ * Collected only at checkout (never up-front) and persisted as an immutable
+ * per-booking snapshot. Maps 1:1 to Duffel's passenger + identity_documents
+ * (passport) shape, so wiring real ticketing later is a straight pass-through.
+ */
+export interface PassengerIdentity {
+  type: PassengerType;
+  givenName: string;
+  familyName: string;
+  dateOfBirth: string; // YYYY-MM-DD
+  gender: Gender;
+  nationality: string; // ISO-2
+  passportNumber: string;
+  passportExpiry: string; // YYYY-MM-DD
+  passportIssuingCountry: string; // ISO-2
+}
+
 // ── Catalog ──────────────────────────────────────────────────────────
 
 export interface AttractionPackage {
