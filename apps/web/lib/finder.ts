@@ -54,7 +54,19 @@ export interface Bundle {
   destCountry: string;
   flight: FlightDeal;
   hotels: HotelOption[];
-  estFromUsd: number; // flight + cheapest matched hotel
+  transferEstUsd: number; // round-trip airport transfer for the party
+  activitiesEstUsd: number; // curated experiences
+  estFromUsd: number; // all-in: flight + cheapest hotel + transfer + activities
+}
+
+/** The customer-facing projection of a bundle: hints only, never the place. */
+export interface SealedBundle {
+  teaser: string;
+  nights: number;
+  hotelStars: number;
+  flightHint: string; // "nonstop" | "1 stop"
+  carryOnIncluded: boolean;
+  priceFromUsd: number;
 }
 
 // ── Flight agent ─────────────────────────────────────────────────────
@@ -165,14 +177,55 @@ export function buildBundles(
     seen.add(deal.destCode);
     const matched = matchHotels(prefs, deal.totalPriceUsd, hotels);
     const cheapest = Math.min(...matched.map((h) => h.totalUsd));
+    const transferEstUsd = 60; // round-trip airport <-> hotel for the party
+    const activitiesEstUsd = 90 * prefs.adults; // curated experiences, per person
     bundles.push({
       destCity: deal.destCity,
       destCountry: deal.destCountry,
       flight: deal,
       hotels: matched,
-      estFromUsd: Math.round(deal.totalPriceUsd + cheapest),
+      transferEstUsd,
+      activitiesEstUsd,
+      estFromUsd: Math.round(deal.totalPriceUsd + cheapest + transferEstUsd + activitiesEstUsd),
     });
     if (bundles.length >= maxBundles) break;
   }
   return bundles;
+}
+
+// ── Secrecy ──────────────────────────────────────────────────────────
+// In production a bundle is shown sealed — the customer sees the *shape* of the
+// trip (vibe, nights, star band, flight type, price) but never the place,
+// carrier, or hotel. `/dev/bundles` shows both the sealed and revealed views.
+
+export function sealBundle(prefs: UserPrefs, b: Bundle): SealedBundle {
+  const stars = Math.round(b.hotels.reduce((s, h) => s + h.starRating, 0) / Math.max(1, b.hotels.length));
+  const flightHint = b.flight.stops === 0 ? "nonstop" : `${b.flight.stops} stop${b.flight.stops > 1 ? "s" : ""}`;
+  const vibe = prefs.vibe.join(" & ");
+  const teaser =
+    `A ${vibe} escape — ${prefs.nights} nights, ${stars}★ stays, a ${flightHint} flight` +
+    `${b.flight.carryOnIncluded ? ", carry-on friendly" : ""}. Where exactly? That's the surprise.`;
+  return {
+    teaser,
+    nights: prefs.nights,
+    hotelStars: stars,
+    flightHint,
+    carryOnIncluded: b.flight.carryOnIncluded,
+    priceFromUsd: b.estFromUsd,
+  };
+}
+
+/** Leak-check: the sealed projection must never name the destination, carrier,
+ *  or any hotel. Returns the offending terms (empty = safe). Whole-word match. */
+export function findBundleLeaks(sealed: SealedBundle, b: Bundle): string[] {
+  const hay = JSON.stringify(sealed).toLowerCase();
+  const secrets = [b.destCity, b.destCountry, b.flight.carrier, ...b.hotels.map((h) => h.name)];
+  const offenders: string[] = [];
+  for (const term of secrets) {
+    const t = term.toLowerCase().trim();
+    if (t.length > 2 && new RegExp(`\\b${t.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`).test(hay)) {
+      offenders.push(term);
+    }
+  }
+  return offenders;
 }
