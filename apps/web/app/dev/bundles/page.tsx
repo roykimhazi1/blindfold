@@ -1,7 +1,7 @@
 import { notFound } from "next/navigation";
-import { rankFlightDeals, buildBundles, type FlightDeal, type Bundle } from "@/lib/finder";
+import { rankFlightDeals, buildBundles, sealBundle, findBundleLeaks, type FlightDeal, type Bundle } from "@/lib/finder";
 import { SAMPLE_PREFS, FLIGHT_OPTIONS, HOTELS_BY_DEST } from "@/lib/finder-fixture";
-import { Plane, Building, Star, Suitcase, Shield, Check, MapPin, Users, Wallet } from "@/components/icons";
+import { Plane, Building, Star, Suitcase, Shield, Check, MapPin, Users, Wallet, Lock } from "@/components/icons";
 
 export const metadata = { title: "DEV · Bundles — Blindfold" };
 
@@ -14,6 +14,8 @@ export default function DevBundlesPage() {
   const prefs = SAMPLE_PREFS;
   const deals = rankFlightDeals(prefs, FLIGHT_OPTIONS, 10);
   const bundles = buildBundles(prefs, deals, HOTELS_BY_DEST, 3);
+  const sealed = bundles.map((b) => sealBundle(prefs, b));
+  const leakSafe = bundles.every((b, i) => findBundleLeaks(sealed[i]!, b).length === 0);
 
   return (
     <div className="aurora relative min-h-[calc(100dvh-65px)]">
@@ -51,11 +53,31 @@ export default function DevBundlesPage() {
           {deals.map((d, i) => <DealRow key={`${d.destCode}-${i}`} rank={i + 1} d={d} />)}
         </ol>
 
-        {/* Master bundles */}
+        {/* Customer view — sealed */}
         <h2 className="mt-10 flex items-center gap-2 font-display text-xl font-bold">
-          <Check size={20} className="text-mint-400" /> Master bundles
+          <Lock size={20} className="text-brand-300" /> What the customer sees (sealed)
         </h2>
-        <p className="mt-1 text-sm text-white/50">Best flight + 2–3 matched hotels per top destination.</p>
+        <p className="mt-1 text-sm text-white/50">
+          The shape of the trip — never the place.{" "}
+          {leakSafe
+            ? <span className="text-mint-300">✓ leak-check passed</span>
+            : <span className="text-rose-300">⚠ leak detected</span>}
+        </p>
+        <div className="mt-4 grid gap-3 sm:grid-cols-3">
+          {sealed.map((s, i) => (
+            <div key={i} className="card p-5">
+              <Lock size={18} className="text-brand-300" />
+              <p className="mt-2 text-sm text-white/80">{s.teaser}</p>
+              <p className="mt-3 tabnum font-display text-xl font-extrabold text-gradient">from {usd(s.priceFromUsd)}</p>
+            </div>
+          ))}
+        </div>
+
+        {/* Ops view — revealed */}
+        <h2 className="mt-10 flex items-center gap-2 font-display text-xl font-bold">
+          <Check size={20} className="text-mint-400" /> Ops view — revealed bundles
+        </h2>
+        <p className="mt-1 text-sm text-white/50">Full trip: flight + hotels + transfer + experiences.</p>
         <div className="mt-4 space-y-4">
           {bundles.map((b) => <BundleCard key={b.flight.destCode} b={b} />)}
         </div>
@@ -102,7 +124,7 @@ function BundleCard({ b }: { b: Bundle }) {
           <p className="text-xs text-white/55">{b.flight.carrier} · {b.flight.durationLabel} · {b.flight.carryOnIncluded ? "carry-on incl" : "carry-on extra"}</p>
         </div>
         <div className="text-right">
-          <p className="text-[11px] uppercase tracking-wide text-white/40">from</p>
+          <p className="text-[11px] uppercase tracking-wide text-white/40">all-in from</p>
           <p className="tabnum font-display text-xl font-extrabold text-gradient">{usd(b.estFromUsd)}</p>
         </div>
       </div>
@@ -120,6 +142,10 @@ function BundleCard({ b }: { b: Bundle }) {
             <span className="tabnum text-white/70">{usd(h.totalUsd)}</span>
           </div>
         ))}
+      </div>
+      <div className="mt-2 grid grid-cols-2 gap-2 text-xs text-white/55">
+        <span className="rounded-xl border border-white/10 bg-white/5 p-2.5">Private transfer ≈ {usd(b.transferEstUsd)}</span>
+        <span className="rounded-xl border border-white/10 bg-white/5 p-2.5">Experiences ≈ {usd(b.activitiesEstUsd)}</span>
       </div>
     </div>
   );
