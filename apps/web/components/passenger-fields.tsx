@@ -14,6 +14,7 @@ export interface IdentityFields {
   dateOfBirth: string;
   gender: Gender | "";
   nationality: string;
+  citizenId: string;
   passportNumber: string;
   passportExpiry: string;
   passportIssuingCountry: string;
@@ -26,6 +27,7 @@ export function emptyIdentity(): IdentityFields {
     dateOfBirth: "",
     gender: "",
     nationality: "IL",
+    citizenId: "",
     passportNumber: "",
     passportExpiry: "",
     passportIssuingCountry: "IL",
@@ -40,11 +42,14 @@ export function PassengerFields({
   onChange,
   errors = {},
   idPrefix,
+  showCitizenId = false,
 }: {
   value: IdentityFields;
   onChange: (patch: Partial<IdentityFields>) => void;
   errors?: PassengerErrors;
   idPrefix: string;
+  /** Show the optional national-ID (citizen ID) field. Off at checkout. */
+  showCitizenId?: boolean;
 }) {
   return (
     <div className="grid gap-3 sm:grid-cols-2">
@@ -87,10 +92,9 @@ export function PassengerFields({
           onChange={(e) => onChange({ gender: e.target.value as Gender | "" })}
           className={inputClass}
         >
-          <option value="" disabled>Select…</option>
-          <option value="f">Female</option>
-          <option value="m">Male</option>
-          <option value="x">Other / X</option>
+          <option value="" disabled className="bg-ink-900 text-white/60">Select…</option>
+          <option value="f" className="bg-ink-900 text-white">Female</option>
+          <option value="m" className="bg-ink-900 text-white">Male</option>
         </select>
       </Field>
 
@@ -101,6 +105,20 @@ export function PassengerFields({
           onChange={(code) => onChange({ nationality: code })}
         />
       </Field>
+
+      {showCitizenId && (
+        <Field label="Citizen ID (national ID)" htmlFor={`${idPrefix}-citizen`}>
+          <input
+            id={`${idPrefix}-citizen`}
+            value={value.citizenId}
+            onChange={(e) => onChange({ citizenId: e.target.value })}
+            autoComplete="off"
+            spellCheck={false}
+            placeholder="National ID number"
+            className={inputClass}
+          />
+        </Field>
+      )}
 
       <Field label="Passport number" error={errors.passportNumber} htmlFor={`${idPrefix}-pp`}>
         <input
@@ -147,7 +165,7 @@ function CountrySelect({
   return (
     <select id={id} value={value} onChange={(e) => onChange(e.target.value)} className={inputClass}>
       {COUNTRIES.map((c) => (
-        <option key={c.code} value={c.code}>{c.name}</option>
+        <option key={c.code} value={c.code} className="bg-ink-900 text-white">{c.name}</option>
       ))}
     </select>
   );

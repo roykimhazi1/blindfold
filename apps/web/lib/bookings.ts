@@ -53,6 +53,8 @@ export interface Booking {
   supplierRefs?: string[];
   /** Stripe PaymentIntent ID — set when checkout used real Stripe. */
   stripePaymentIntentId?: string;
+  /** Who's travelling — names only (no passport PII). Loaded by getBooking. */
+  passengers?: { type: string; givenName: string; familyName: string }[];
 }
 
 type BookingRow = Database["public"]["Tables"]["bookings"]["Row"];
@@ -250,7 +252,16 @@ export async function getBooking(id: string): Promise<Booking | undefined> {
   if (!b) return undefined;
   const { data: s } = await supa.from("booking_secrets").select("*").eq("booking_id", id).maybeSingle();
   if (!s) return undefined;
-  return rowToBooking(b, s);
+  const { data: pax } = await supa
+    .from("booking_passengers")
+    .select("passenger_type, given_name, family_name")
+    .eq("booking_id", id);
+  const passengers = (pax ?? []).map((p) => ({
+    type: p.passenger_type,
+    givenName: p.given_name,
+    familyName: p.family_name,
+  }));
+  return { ...rowToBooking(b, s), passengers };
 }
 
 /** All bookings, newest first — for the admin console. */

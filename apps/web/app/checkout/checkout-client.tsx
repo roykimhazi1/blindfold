@@ -44,6 +44,7 @@ function toIdentity(t: SavedTraveller): IdentityFields {
     dateOfBirth: t.dateOfBirth,
     gender: t.gender,
     nationality: t.nationality,
+    citizenId: t.citizenId,
     passportNumber: t.passportNumber,
     passportExpiry: t.passportExpiry,
     passportIssuingCountry: t.passportIssuingCountry,

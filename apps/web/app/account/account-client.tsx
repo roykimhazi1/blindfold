@@ -16,6 +16,7 @@ function toDraft(t: SavedTraveller): Draft {
     dateOfBirth: t.dateOfBirth,
     gender: t.gender,
     nationality: t.nationality,
+    citizenId: t.citizenId,
     passportNumber: t.passportNumber,
     passportExpiry: t.passportExpiry,
     passportIssuingCountry: t.passportIssuingCountry,
@@ -176,6 +177,7 @@ export function AccountClient({ initialTravellers }: { initialTravellers: SavedT
             onChange={(patch) => setDraft((d) => ({ ...d, ...patch }))}
             errors={errors}
             idPrefix={`acct-${editing.id ?? "new"}`}
+            showCitizenId
           />
 
           <label className="flex items-center gap-2.5 text-sm text-white/70">

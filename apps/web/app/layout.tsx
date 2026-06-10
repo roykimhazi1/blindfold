@@ -18,6 +18,7 @@ const body = Inter({
 });
 
 export const metadata: Metadata = {
+  metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000"),
   title: "Blindfold — Surprise Vacations",
   description:
     "Tell us your budget and dates. We hand you a whole trip to a place you won't see coming — flights, hotel, transfers, the lot. You just pack a bag.",

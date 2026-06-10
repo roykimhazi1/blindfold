@@ -16,6 +16,8 @@ export interface TripView {
   includes: string[];
   hints: SurpriseHints;
   contactName: string;
+  /** Who's travelling — names only (the owner's own data; no passport PII). */
+  passengers?: { givenName: string; familyName: string }[];
   status: "confirmed" | "cancelled";
   refunded?: number;
   msToNext: number | null;
@@ -51,6 +53,12 @@ export function toTripView(b: Booking, nowMs = Date.now()): TripView {
       completeAt: b.schedule.completeAt,
     },
   };
+
+  // Passenger names aren't a destination secret and belong to the owner, so
+  // they're shown from the start (not stage-gated).
+  if (b.passengers?.length) {
+    view.passengers = b.passengers.map((p) => ({ givenName: p.givenName, familyName: p.familyName }));
+  }
 
   if (stageAtLeast(stage, "gate")) {
     view.destination = {

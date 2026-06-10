@@ -182,17 +182,25 @@ export interface PricedComponents {
 
 // ── Provider interfaces ──────────────────────────────────────────────
 
+// Each provider exposes `quote` (the single best/cheapest offer — the
+// deterministic spine) and an optional `search` returning a ranked list of
+// offers for a specialist agent to choose among. By convention the cheapest
+// `search` offer equals `quote`, so the deterministic mock-pick is unchanged.
 export interface FlightProvider {
   quote(dest: Destination, params: TripParams): Promise<FlightQuote | null>;
+  search?(dest: Destination, params: TripParams): Promise<FlightQuote[]>;
 }
 export interface HotelProvider {
   quote(dest: Destination, params: TripParams): Promise<HotelQuote | null>;
+  search?(dest: Destination, params: TripParams): Promise<HotelQuote[]>;
 }
 export interface TransferProvider {
   quote(dest: Destination, params: TripParams): Promise<TransferQuote | null>;
+  search?(dest: Destination, params: TripParams): Promise<TransferQuote[]>;
 }
 export interface AttractionProvider {
   quote(dest: Destination, params: TripParams): Promise<AttractionQuote | null>;
+  search?(dest: Destination, params: TripParams): Promise<AttractionQuote[]>;
 }
 
 export interface Providers {

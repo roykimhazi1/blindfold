@@ -29,10 +29,16 @@ export function validatePassenger(p: PassengerInput): PassengerErrors {
 
   if (!p.nationality || !ISO2.test(p.nationality)) e.nationality = "Select a nationality";
 
-  if (!p.passportNumber || p.passportNumber.trim().length < 3) e.passportNumber = "Add the passport number";
+  if (!p.passportNumber || !p.passportNumber.trim()) {
+    e.passportNumber = "Add the passport number";
+  } else if (p.passportNumber.trim().length < 5) {
+    e.passportNumber = "That passport number looks too short — please double-check it.";
+  }
 
   if (!p.passportExpiry || !ISO_DATE.test(p.passportExpiry) || Number.isNaN(Date.parse(p.passportExpiry))) {
     e.passportExpiry = "Add the passport expiry";
+  } else if (p.passportExpiry < new Date().toISOString().slice(0, 10)) {
+    e.passportExpiry = "This passport has expired.";
   }
 
   if (!p.passportIssuingCountry || !ISO2.test(p.passportIssuingCountry)) {
