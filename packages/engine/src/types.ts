@@ -55,12 +55,16 @@ export interface HotelPrefs {
 export interface Constraints {
   maxFlightHours?: number;
   avoidRegions?: string[];
+  /** Specific cities/countries the traveler does NOT want (optional). */
+  avoidDestinations?: string[];
   accessibility?: boolean;
   dietary?: string[];
   /** Reject overnight / very-early flights when true. */
   avoidRedeye?: boolean;
   /** Prefer non-stop flights only. (Mock flights are single-leg, so always direct.) */
   directOnly?: boolean;
+  /** True if travelling with a checked bag; false/undefined means carry-on only. */
+  checkedLuggage?: boolean;
   /** Traveler nationality (ISO-2) used for visa filtering. */
   nationality?: string;
 }
