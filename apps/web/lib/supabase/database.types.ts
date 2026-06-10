@@ -14,6 +14,69 @@ export type Database = {
   }
   public: {
     Tables: {
+      booking_passengers: {
+        Row: {
+          booking_id: string
+          created_at: string
+          date_of_birth: string
+          family_name: string
+          gender: string
+          given_name: string
+          id: string
+          nationality: string
+          passenger_type: string
+          passport_expiry: string
+          passport_issuing_country: string
+          passport_number: string
+          source_traveller_id: string | null
+        }
+        Insert: {
+          booking_id: string
+          created_at?: string
+          date_of_birth: string
+          family_name: string
+          gender: string
+          given_name: string
+          id?: string
+          nationality: string
+          passenger_type: string
+          passport_expiry: string
+          passport_issuing_country: string
+          passport_number: string
+          source_traveller_id?: string | null
+        }
+        Update: {
+          booking_id?: string
+          created_at?: string
+          date_of_birth?: string
+          family_name?: string
+          gender?: string
+          given_name?: string
+          id?: string
+          nationality?: string
+          passenger_type?: string
+          passport_expiry?: string
+          passport_issuing_country?: string
+          passport_number?: string
+          source_traveller_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "booking_passengers_booking_id_fkey"
+            columns: ["booking_id"]
+            isOneToOne: false
+            referencedRelation: "bookings"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "booking_passengers_source_traveller_id_fkey"
+            columns: ["source_traveller_id"]
+            isOneToOne: false
+            referencedRelation: "travellers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       booking_secrets: {
         Row: {
           airport: string
@@ -92,6 +155,7 @@ export type Database = {
           refunded: number | null
           schedule: Json
           status: string
+          stripe_payment_intent_id: string | null
           supplier_refs: Json | null
           travelers: number
           user_id: string
@@ -114,6 +178,7 @@ export type Database = {
           refunded?: number | null
           schedule: Json
           status?: string
+          stripe_payment_intent_id?: string | null
           supplier_refs?: Json | null
           travelers: number
           user_id: string
@@ -136,6 +201,7 @@ export type Database = {
           refunded?: number | null
           schedule?: Json
           status?: string
+          stripe_payment_intent_id?: string | null
           supplier_refs?: Json | null
           travelers?: number
           user_id?: string
@@ -213,6 +279,54 @@ export type Database = {
           full_name?: string | null
           id?: string
           is_admin?: boolean
+        }
+        Relationships: []
+      }
+      travellers: {
+        Row: {
+          created_at: string
+          date_of_birth: string
+          family_name: string
+          gender: string
+          given_name: string
+          id: string
+          is_self: boolean
+          nationality: string
+          passport_expiry: string
+          passport_issuing_country: string
+          passport_number: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          date_of_birth: string
+          family_name: string
+          gender: string
+          given_name: string
+          id?: string
+          is_self?: boolean
+          nationality: string
+          passport_expiry: string
+          passport_issuing_country: string
+          passport_number: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          date_of_birth?: string
+          family_name?: string
+          gender?: string
+          given_name?: string
+          id?: string
+          is_self?: boolean
+          nationality?: string
+          passport_expiry?: string
+          passport_issuing_country?: string
+          passport_number?: string
+          updated_at?: string
+          user_id?: string
         }
         Relationships: []
       }

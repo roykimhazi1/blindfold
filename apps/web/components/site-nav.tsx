@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { Logo } from "@/components/brand";
-import { Sparkles, Gift } from "@/components/icons";
+import { Sparkles, Gift, Users } from "@/components/icons";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 const LINKS = [
@@ -39,6 +39,9 @@ export async function SiteNav() {
             <>
               <Link href="/trips" className="hidden items-center gap-1.5 text-sm text-white/70 transition-colors hover:text-white sm:inline-flex">
                 <Gift size={16} className="text-brand-300" /> My trips
+              </Link>
+              <Link href="/account" className="hidden items-center gap-1.5 text-sm text-white/70 transition-colors hover:text-white sm:inline-flex">
+                <Users size={16} className="text-brand-300" /> Personal info
               </Link>
               <span className="hidden text-sm text-white/50 md:inline">{firstName}</span>
               <form action="/auth/signout" method="post">

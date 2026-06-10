@@ -4,7 +4,7 @@ import type { Database } from "@/lib/supabase/database.types";
 
 // Routes that require a signed-in user (account-first). Unauthenticated hits are
 // bounced to /login?next=<path>. /admin additionally checks is_admin in its layout.
-const PROTECTED = [/^\/checkout(\/|$)/, /^\/trips(\/|$)/, /^\/trip(\/|$)/, /^\/admin(\/|$)/];
+const PROTECTED = [/^\/checkout(\/|$)/, /^\/trips(\/|$)/, /^\/trip(\/|$)/, /^\/admin(\/|$)/, /^\/account(\/|$)/];
 
 export async function middleware(request: NextRequest) {
   // Refresh the Supabase auth session on every request and mirror the updated

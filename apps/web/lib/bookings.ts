@@ -1,5 +1,5 @@
 import "server-only";
-import type { ScoredOption, TripParams, SurpriseHints, RevealStage, RevealSchedule, PriceBreakdown } from "@sv/engine";
+import type { ScoredOption, TripParams, SurpriseHints, RevealStage, RevealSchedule, PriceBreakdown, PassengerIdentity } from "@sv/engine";
 import { buildSchedule, stageAt, stageRank, msToNextStage } from "@sv/engine";
 import { enqueueBookingEmails, enqueueRefundEmail } from "@/lib/notify";
 import { supabaseAdmin } from "@/lib/supabase/admin";
@@ -105,9 +105,11 @@ export async function createBooking(
   params: TripParams,
   deal: { id: string; priceTotal: number; currency: string; includes: string[] },
   contact: { name: string; email: string },
+  passengers: PassengerIdentity[],
   userId: string,
   supplierRefs?: string[],
   stripePaymentIntentId?: string,
+  sourceTravellerIds?: (string | null)[],
 ): Promise<Booking> {
   const { destination: d, components: c } = option;
   const schedule = buildSchedule({
@@ -196,6 +198,32 @@ export async function createBooking(
     // Roll back the booking row so we never leave a secret-less booking behind.
     await supa.from("bookings").delete().eq("id", booking.id);
     throw new Error("Failed to persist booking secret: " + sErr.message);
+  }
+
+  // Passenger snapshot — passport PII, written only via the service-role client
+  // into the RLS-locked `booking_passengers` table (never the client-safe row).
+  if (passengers.length > 0) {
+    const { error: pErr } = await supa.from("booking_passengers").insert(
+      passengers.map((p, i) => ({
+        booking_id: booking.id,
+        passenger_type: p.type,
+        given_name: p.givenName,
+        family_name: p.familyName,
+        date_of_birth: p.dateOfBirth,
+        gender: p.gender,
+        nationality: p.nationality,
+        passport_number: p.passportNumber,
+        passport_expiry: p.passportExpiry,
+        passport_issuing_country: p.passportIssuingCountry,
+        source_traveller_id: sourceTravellerIds?.[i] ?? null,
+      })),
+    );
+    if (pErr) {
+      // Roll back secret + booking — never leave a passenger-less booking behind.
+      await supa.from("booking_secrets").delete().eq("booking_id", booking.id);
+      await supa.from("bookings").delete().eq("id", booking.id);
+      throw new Error("Failed to persist passengers: " + pErr.message);
+    }
   }
 
   await enqueueBookingEmails({

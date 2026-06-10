@@ -68,6 +68,9 @@ export async function POST(req: Request) {
       params,
       deals[idx]!,
       { name, email },
+      [], // passport details aren't in Stripe metadata (PII) — this durable
+          // fallback books without the passenger snapshot; the /api/book path
+          // (with the browser open) is what captures it.
       userId,
       supplierRefs,
       intent.id,
