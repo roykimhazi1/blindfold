@@ -211,6 +211,57 @@ export type Database = {
         }
         Relationships: []
       }
+      destination_fares: {
+        Row: {
+          id: string
+          origin: string
+          destination_airport: string
+          destination_city: string
+          depart_date: string
+          nights: number
+          cheapest_total_eur: number
+          currency: string
+          carrier: string | null
+          direct: boolean
+          duration_hours: number | null
+          offer_sample: Json | null
+          refreshed_at: string
+          expires_at: string
+        }
+        Insert: {
+          id?: string
+          origin?: string
+          destination_airport: string
+          destination_city: string
+          depart_date: string
+          nights: number
+          cheapest_total_eur: number
+          currency?: string
+          carrier?: string | null
+          direct?: boolean
+          duration_hours?: number | null
+          offer_sample?: Json | null
+          refreshed_at?: string
+          expires_at: string
+        }
+        Update: {
+          id?: string
+          origin?: string
+          destination_airport?: string
+          destination_city?: string
+          depart_date?: string
+          nights?: number
+          cheapest_total_eur?: number
+          currency?: string
+          carrier?: string | null
+          direct?: boolean
+          duration_hours?: number | null
+          offer_sample?: Json | null
+          refreshed_at?: string
+          expires_at?: string
+        }
+        Relationships: []
+      }
       outbox: {
         Row: {
           body: string

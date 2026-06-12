@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import type { TripParams, PassengerIdentity } from "@sv/engine";
-import { bookBundle, getFulfillment, mockProviders, requoteOption } from "@sv/engine";
-import { orchestrateDeals } from "@sv/agents";
+import { bookBundle, getFulfillment, requoteOption } from "@sv/engine";
+import { recoverDeal } from "@/lib/deal-source";
 import { decodeParams } from "@/lib/trip";
 import { createBooking, type CommsMode } from "@/lib/bookings";
 import { verifyPaymentIntent, stripeEnabled } from "@/lib/stripe";
@@ -105,17 +105,16 @@ export async function POST(req: Request) {
   const passengers = travellers.map(normalizePassenger);
 
   try {
-    // [1] Recover the chosen option deterministically (same mock estimates the
-    //     wizard showed — deal ids and destinations match exactly).
-    const { deals, options } = await orchestrateDeals(params, { providers: mockProviders });
-    const idx = deals.findIndex((d) => d.id === body.dealId);
-    if (idx === -1 || !options[idx]) {
+    // [1] Recover the chosen option from the same source that generated it
+    //     (discovery cache or catalog estimates — deal ids match exactly).
+    const recovered = await recoverDeal(params, body.dealId);
+    if (!recovered) {
       return NextResponse.json({ error: "That surprise has expired — please search again" }, { status: 409 });
     }
 
     // [2] Live re-quote of the finalist only (fresh Duffel offer, then the
     //     Stays rate) + confirm delta. No-op in mock mode.
-    const { option, deal } = await requoteOption(options[idx]!, params);
+    const { option, deal } = await requoteOption(recovered.option, params);
 
     if (typeof body.shownTotal === "number" && !body.confirmPriceChange) {
       const tolerance = Math.max(1, body.shownTotal * PRICE_DELTA_TOLERANCE);

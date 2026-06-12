@@ -26,7 +26,7 @@ const TO_EUR: Record<string, number> = {
   EUR: 1, USD: 0.926, GBP: 1.17, ILS: 0.247, AED: 0.252, EGP: 0.018,
 };
 
-function toEur(amount: number, currency: string): number {
+export function toEur(amount: number, currency: string): number {
   return round2(amount * (TO_EUR[currency] ?? 1));
 }
 

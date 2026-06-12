@@ -1,9 +1,16 @@
 import type { Destination, AttractionPackage } from "./types.ts";
+import { UNIVERSE } from "./universe.ts";
 
 // Seed catalog of "operable" cities — each has a transfer partner and at
 // least one attraction package. Departure hub for the MVP is TLV (Tel Aviv).
 // Climate is average °C per month (Jan..Dec). Flight hours are from TLV.
 // All destinations here are visa-free for Israeli (IL) passports.
+//
+// The curated entries below are the agents' "reference book" — rich,
+// hand-picked activities. The exported CATALOG also includes the airport
+// UNIVERSE (universe.ts): the long tail of TLV-reachable cities with generic
+// activity fallbacks, so discovery, pricing, and the leak-check span every
+// operable city.
 
 function pkg(
   id: string,
@@ -15,7 +22,7 @@ function pkg(
   return { id, title, items, pricePerPerson, vibeTags };
 }
 
-export const CATALOG: Destination[] = [
+const CURATED: Destination[] = [
   // ── Eastern Mediterranean ─────────────────────────────────────────
   {
     id: "larnaca-cy",
@@ -578,10 +585,17 @@ export const CATALOG: Destination[] = [
   },
 ];
 
+/** Every operable destination: curated reference book + the airport universe. */
+export const CATALOG: Destination[] = [...CURATED, ...UNIVERSE];
+
 export function activeDestinations(): Destination[] {
   return CATALOG.filter((d) => d.active);
 }
 
 export function findDestination(id: string): Destination | undefined {
   return CATALOG.find((d) => d.id === id);
+}
+
+export function findDestinationByAirport(iata: string): Destination | undefined {
+  return CATALOG.find((d) => d.airport === iata);
 }

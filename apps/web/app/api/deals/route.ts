@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
-import { mockProviders, type TripParams } from "@sv/engine";
-import { orchestrateDeals } from "@sv/agents";
+import type { TripParams } from "@sv/engine";
+import { sourceDeals } from "@/lib/deal-source";
 
 export const runtime = "nodejs";
 
@@ -25,11 +25,12 @@ export async function POST(req: Request) {
   }
 
   try {
-    // Wizard deals are deterministic estimates: never fan live supplier calls
-    // out across the whole catalog here. The chosen finalist gets a real
+    // Wizard deals are estimates: flight-led discovery over the fare cache
+    // when it covers the window, the deterministic catalog pipeline otherwise.
+    // Never live supplier fan-out here — the chosen finalist gets a real
     // re-quote in /api/book (see requoteOption) before any money moves.
-    const { deals, traces, diagnostics } = await orchestrateDeals(params, { providers: mockProviders });
-    return NextResponse.json({ deals, traces, diagnostics });
+    const { deals, traces, diagnostics, source } = await sourceDeals(params);
+    return NextResponse.json({ deals, traces, diagnostics: { ...diagnostics, source } });
   } catch (err) {
     const message = err instanceof Error ? err.message : "Unknown error";
     return NextResponse.json({ error: message }, { status: 500 });
