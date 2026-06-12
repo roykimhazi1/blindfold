@@ -1,9 +1,9 @@
 import { NextResponse } from "next/server";
 import type { TripParams } from "@sv/engine";
-import { bookBundle } from "@sv/engine";
+import { bookBundle, getFulfillment, mockProviders, requoteOption } from "@sv/engine";
 import { orchestrateDeals } from "@sv/agents";
 import { decodeParams } from "@/lib/trip";
-import { createBooking } from "@/lib/bookings";
+import { createBooking, type CommsMode } from "@/lib/bookings";
 import { getStripe } from "@/lib/stripe";
 
 export const runtime = "nodejs";
@@ -49,24 +49,38 @@ export async function POST(req: Request) {
     return NextResponse.json({ received: true });
   }
 
+  // Secrecy choice set at checkout-session time; 'ops' routes supplier
+  // emails to the concierge inbox so receipts can't spoil the reveal.
+  const commsMode: CommsMode = intent.metadata.commsMode === "self" ? "self" : "ops";
+  const supplierEmail =
+    commsMode === "ops" ? (process.env.OPS_CONTACT_EMAIL?.trim() || email) : email;
+
   try {
     const params: TripParams | null = decodeParams(p);
     if (!params) return NextResponse.json({ received: true });
 
-    const { deals, options } = await orchestrateDeals(params);
-    const idx = deals.findIndex((d) => d.id === dealId);
-    if (idx === -1 || !options[idx]) return NextResponse.json({ received: true });
+    // Recover deterministically (matches the wizard's deal ids), then re-quote
+    // the finalist live — the same two-step /api/book performs. The payment is
+    // already captured here, so the fresh quote is recorded, not re-confirmed.
+    const recovered = await orchestrateDeals(params, { providers: mockProviders });
+    const idx = recovered.deals.findIndex((d) => d.id === dealId);
+    if (idx === -1 || !recovered.options[idx]) return NextResponse.json({ received: true });
+    const { option, deal } = await requoteOption(recovered.options[idx]!, params);
 
-    const booked = await bookBundle(options[idx]!.components, {
+    // No passport snapshot here (PII never rides Stripe metadata), so real
+    // supplier legs fall back to mock refs — ops reconciles from the booking.
+    const booked = await bookBundle(option.components, {
       bookingId: `${dealId}:${email}:webhook`,
+      fulfillment: getFulfillment(),
+      contact: { email: supplierEmail },
     });
     if (!booked.ok) return NextResponse.json({ received: true });
 
     const supplierRefs = booked.orders.map((o) => o.ref);
     await createBooking(
-      options[idx]!,
+      option,
       params,
-      deals[idx]!,
+      deal,
       { name, email },
       [], // passport details aren't in Stripe metadata (PII) — this durable
           // fallback books without the passenger snapshot; the /api/book path
@@ -74,6 +88,8 @@ export async function POST(req: Request) {
       userId,
       supplierRefs,
       intent.id,
+      undefined,
+      commsMode,
     );
   } catch {
     // Log but return 200 so Stripe doesn't retry indefinitely.

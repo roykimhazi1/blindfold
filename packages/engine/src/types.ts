@@ -139,6 +139,24 @@ export interface Destination {
 
 // ── Provider quotes ──────────────────────────────────────────────────
 
+/**
+ * Opaque supplier handles captured at quote time so fulfillment can book the
+ * exact offer/rate that was priced. Server-side only — quotes carrying this
+ * never leave the redaction boundary (`SurpriseDeal` strips components).
+ */
+export interface SupplierRef {
+  /** Duffel flight offer id (off_…). */
+  offerId?: string;
+  /** Duffel offer passenger ids, in offer-request order (pas_…). */
+  passengerIds?: string[];
+  /** Duffel Stays rate id (rat_…). */
+  rateId?: string;
+  /** Supplier-priced total verbatim (e.g. "799.00") and its currency — order
+   *  payment must echo the supplier's own number, not our EUR conversion. */
+  totalAmount?: string;
+  currency?: string;
+}
+
 export interface FlightQuote {
   destinationId: string;
   carrier: string;
@@ -147,6 +165,7 @@ export interface FlightQuote {
   durationHours: number;
   /** Round-trip total for the whole party, in EUR. */
   totalPrice: number;
+  supplier?: SupplierRef;
 }
 
 export interface HotelQuote {
@@ -159,6 +178,7 @@ export interface HotelQuote {
   nights: number;
   /** Total for the stay (all rooms), in EUR. */
   totalPrice: number;
+  supplier?: SupplierRef;
 }
 
 export interface TransferQuote {

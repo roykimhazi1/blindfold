@@ -22,6 +22,7 @@ export async function POST(req: Request) {
     p?: string;
     name?: string;
     email?: string;
+    commsMode?: string;
   };
   try {
     body = await req.json();
@@ -30,6 +31,9 @@ export async function POST(req: Request) {
   }
 
   const { amount, currency, dealId, p, name, email } = body;
+  // The secrecy choice rides the PaymentIntent so the durable webhook path
+  // books with the same comms mode. Not PII — just "ops" | "self".
+  const commsMode = body.commsMode === "self" ? "self" : "ops";
   if (!amount || !currency || !dealId || !p || !name || !email) {
     return NextResponse.json({ error: "Missing required fields" }, { status: 422 });
   }
@@ -56,6 +60,7 @@ export async function POST(req: Request) {
         name,
         email,
         userId: user.id,
+        commsMode,
       },
       description: "Blindfold surprise trip",
       receipt_email: email,

@@ -30,6 +30,7 @@ export {
 export {
   bookBundle,
   mockFulfillment,
+  mockBooker,
   type Fulfillment,
   type DomainBooker,
   type SupplierOrder,
@@ -37,6 +38,8 @@ export {
   type BookingDomain,
   type BookInput,
 } from "./fulfillment.ts";
+export { getFulfillment, duffelFulfillment, toDuffelOrderPassenger } from "./fulfillment-duffel.ts";
+export { requoteOption, type RequoteResult, type RequoteOptions } from "./requote.ts";
 export {
   REVEAL_ORDER,
   stageRank,

@@ -140,6 +140,7 @@ export type Database = {
         Row: {
           breakdown_eur: Json
           cancelled_at_iso: string | null
+          comms_mode: string
           contact_email: string
           contact_name: string
           created_at_iso: string
@@ -163,6 +164,7 @@ export type Database = {
         Insert: {
           breakdown_eur: Json
           cancelled_at_iso?: string | null
+          comms_mode?: string
           contact_email: string
           contact_name: string
           created_at_iso: string
@@ -186,6 +188,7 @@ export type Database = {
         Update: {
           breakdown_eur?: Json
           cancelled_at_iso?: string | null
+          comms_mode?: string
           contact_email?: string
           contact_name?: string
           created_at_iso?: string

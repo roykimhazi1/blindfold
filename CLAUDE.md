@@ -9,7 +9,8 @@ travelers; optional vibe/hotel/constraints) and gets **3 curated surprise bundle
 complete trip (flights + hotel + airport transfer + attractions) to a **hidden destination**.
 The destination is revealed at the airport; the hotel is revealed by the driver on arrival.
 
-Full product/architecture plan: `.claude/plans/lets-build-together-a-distributed-garden.md`.
+Architecture plan (discovery-first sourcing, Phase 0–D): `.claude/plans/sourcing-discovery-first-architecture.md`.
+Current milestone plan (D-light — real booking): `.claude/plans/dlight-real-booking-plan.md`.
 
 ## Monorepo layout (npm workspaces + Turborepo)
 

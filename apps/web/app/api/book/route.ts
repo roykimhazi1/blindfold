@@ -1,9 +1,9 @@
 import { NextResponse } from "next/server";
 import type { TripParams, PassengerIdentity } from "@sv/engine";
-import { bookBundle } from "@sv/engine";
+import { bookBundle, getFulfillment, mockProviders, requoteOption } from "@sv/engine";
 import { orchestrateDeals } from "@sv/agents";
 import { decodeParams } from "@/lib/trip";
-import { createBooking } from "@/lib/bookings";
+import { createBooking, type CommsMode } from "@/lib/bookings";
 import { verifyPaymentIntent, stripeEnabled } from "@/lib/stripe";
 import { getSession } from "@/lib/auth";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
@@ -40,6 +40,7 @@ export async function POST(req: Request) {
     shownTotal?: number;
     confirmPriceChange?: boolean;
     paymentIntentId?: string;
+    commsMode?: CommsMode;
   };
   try {
     body = await req.json();
@@ -62,6 +63,14 @@ export async function POST(req: Request) {
   if (!name || !email) {
     return NextResponse.json({ error: "Please add a name and email" }, { status: 422 });
   }
+
+  // The secrecy choice: in 'ops' mode supplier (airline/hotel) emails go to the
+  // concierge inbox so receipts can't spoil the destination; the customer still
+  // gets our leak-checked emails either way. Falls back to the customer's email
+  // when no ops inbox is configured.
+  const commsMode: CommsMode = body.commsMode === "self" ? "self" : "ops";
+  const supplierEmail =
+    commsMode === "ops" ? (process.env.OPS_CONTACT_EMAIL?.trim() || email) : email;
 
   // Passenger identities — one per traveller in the party. Validated here as the
   // authoritative gate (never trust the client): right count, complete fields,
@@ -96,15 +105,18 @@ export async function POST(req: Request) {
   const passengers = travellers.map(normalizePassenger);
 
   try {
-    const { deals, options } = await orchestrateDeals(params);
+    // [1] Recover the chosen option deterministically (same mock estimates the
+    //     wizard showed — deal ids and destinations match exactly).
+    const { deals, options } = await orchestrateDeals(params, { providers: mockProviders });
     const idx = deals.findIndex((d) => d.id === body.dealId);
     if (idx === -1 || !options[idx]) {
       return NextResponse.json({ error: "That surprise has expired — please search again" }, { status: 409 });
     }
-    const deal = deals[idx]!;
-    const option = options[idx]!;
 
-    // [2] Re-quote + confirm delta.
+    // [2] Live re-quote of the finalist only (fresh Duffel offer, then the
+    //     Stays rate) + confirm delta. No-op in mock mode.
+    const { option, deal } = await requoteOption(options[idx]!, params);
+
     if (typeof body.shownTotal === "number" && !body.confirmPriceChange) {
       const tolerance = Math.max(1, body.shownTotal * PRICE_DELTA_TOLERANCE);
       if (Math.abs(deal.priceTotal - body.shownTotal) > tolerance) {
@@ -126,8 +138,14 @@ export async function POST(req: Request) {
       }
     }
 
-    // [4] Booking saga — secure all three legs or roll back.
-    const booked = await bookBundle(option.components, { bookingId: `${body.dealId}:${email}` });
+    // [4] Booking saga — secure all three legs or roll back. In sandbox/live
+    //     mode this places real Duffel orders with the passport snapshot.
+    const booked = await bookBundle(option.components, {
+      bookingId: `${body.dealId}:${email}`,
+      fulfillment: getFulfillment(),
+      passengers,
+      contact: { email: supplierEmail },
+    });
     if (!booked.ok) {
       return NextResponse.json(
         { error: "We couldn't secure the whole trip just now — please try again." },
@@ -153,7 +171,7 @@ export async function POST(req: Request) {
       });
     }
 
-    const booking = await createBooking(option, params, deal, { name, email }, passengers, user.id, supplierRefs, body.paymentIntentId, sourceTravellerIds);
+    const booking = await createBooking(option, params, deal, { name, email }, passengers, user.id, supplierRefs, body.paymentIntentId, sourceTravellerIds, commsMode);
     return NextResponse.json({ id: booking.id });
   } catch (err) {
     const message = err instanceof Error ? err.message : "Unknown error";

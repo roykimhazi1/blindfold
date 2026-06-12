@@ -20,12 +20,16 @@ export default async function StartPage() {
     if (data?.nationality) defaultNationality = data.nationality;
   }
 
+  // Computed server-side and passed down so SSR and hydration agree on "now"
+  // (the page is force-dynamic, so this is fresh per request).
+  const today = new Date().toISOString().slice(0, 10);
+
   return (
     <div className="aurora relative min-h-[calc(100dvh-65px)]">
       <span className="blob left-[6%] top-24 h-64 w-64 bg-brand-500/40" />
       <span className="blob right-[8%] bottom-20 h-72 w-72 bg-violet-500/40" style={{ animationDelay: "-8s" }} />
       <div className="mx-auto max-w-xl px-5 py-12">
-        <WizardClient defaultNationality={defaultNationality} />
+        <WizardClient defaultNationality={defaultNationality} today={today} />
       </div>
     </div>
   );

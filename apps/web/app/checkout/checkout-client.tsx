@@ -118,6 +118,9 @@ export function CheckoutClient({
 
   const [name, setName] = useState(defaultName);
   const [email, setEmail] = useState(defaultEmail);
+  // Who gets the airline/hotel emails: "ops" keeps the surprise sealed (our
+  // concierge handles supplier mail); "self" hands the customer every receipt.
+  const [commsMode, setCommsMode] = useState<"ops" | "self">("ops");
   const [step, setStep] = useState<Step>("contact");
   const [slots, setSlots] = useState<Slot[]>(() =>
     params ? buildSlots(params.travelers.adults, params.travelers.childrenAges, savedTravellers) : [],
@@ -200,7 +203,7 @@ export function CheckoutClient({
         const res = await fetch("/api/checkout/session", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ amount: price, currency: cur, dealId, p, name, email }),
+          body: JSON.stringify({ amount: price, currency: cur, dealId, p, name, email, commsMode }),
         });
         const data = await res.json();
         if (!res.ok) throw new Error(data.error ?? "Something went wrong");
@@ -227,6 +230,7 @@ export function CheckoutClient({
           sourceTravellerIds: slots.map((s) => s.sourceId),
           shownTotal: confirm?.newTotal ?? price,
           confirmPriceChange: !!confirm,
+          commsMode,
         }),
       });
       const data = await res.json();
@@ -293,6 +297,57 @@ export function CheckoutClient({
               className="mt-1 w-full rounded-2xl border border-white/15 bg-white/5 px-4 py-3 outline-none focus:border-brand-400"
             />
           </div>
+
+          <fieldset>
+            <legend className="text-sm text-white/60">Booking emails &amp; receipts</legend>
+            <div className="mt-1 space-y-2">
+              <label
+                className={`flex cursor-pointer items-start gap-3 rounded-2xl border px-4 py-3 transition ${
+                  commsMode === "ops" ? "border-brand-400 bg-brand-500/10" : "border-white/15 bg-white/5 hover:border-white/30"
+                }`}
+              >
+                <input
+                  type="radio"
+                  name="commsMode"
+                  value="ops"
+                  checked={commsMode === "ops"}
+                  onChange={() => setCommsMode("ops")}
+                  className="mt-1 h-4 w-4 accent-brand-500"
+                />
+                <span>
+                  <span className="flex items-center gap-1.5 text-sm font-semibold">
+                    <Lock size={14} className="text-brand-300" /> Full surprise
+                    <span className="rounded-full bg-brand-500/20 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-brand-200">Recommended</span>
+                  </span>
+                  <span className="mt-0.5 block text-xs text-white/55">
+                    Airline &amp; hotel emails go to our concierge desk — you only get our spoiler-free updates.
+                  </span>
+                </span>
+              </label>
+              <label
+                className={`flex cursor-pointer items-start gap-3 rounded-2xl border px-4 py-3 transition ${
+                  commsMode === "self" ? "border-brand-400 bg-brand-500/10" : "border-white/15 bg-white/5 hover:border-white/30"
+                }`}
+              >
+                <input
+                  type="radio"
+                  name="commsMode"
+                  value="self"
+                  checked={commsMode === "self"}
+                  onChange={() => setCommsMode("self")}
+                  className="mt-1 h-4 w-4 accent-brand-500"
+                />
+                <span>
+                  <span className="flex items-center gap-1.5 text-sm font-semibold">
+                    <Unlock size={14} className="text-white/50" /> Keep me in control
+                  </span>
+                  <span className="mt-0.5 block text-xs text-white/55">
+                    Confirmations &amp; receipts land in your inbox — fair warning: they&apos;ll name the destination.
+                  </span>
+                </span>
+              </label>
+            </div>
+          </fieldset>
 
           <div className="flex items-center justify-between rounded-2xl border border-white/10 bg-white/5 px-4 py-3">
             <span className="text-sm text-white/70">All-in total</span>
@@ -434,6 +489,7 @@ export function CheckoutClient({
             travellers={passengers}
             sourceTravellerIds={slots.map((s) => s.sourceId)}
             clientSecret={clientSecret}
+            commsMode={commsMode}
           />
         </Elements>
       )}
@@ -475,7 +531,7 @@ function Steps({ step }: { step: Step }) {
 }
 
 function StripePaymentForm({
-  price, sym, name, email, dealId, p, travellers, sourceTravellerIds, clientSecret,
+  price, sym, name, email, dealId, p, travellers, sourceTravellerIds, clientSecret, commsMode,
 }: {
   price: number;
   sym: string;
@@ -486,6 +542,7 @@ function StripePaymentForm({
   travellers: PassengerIdentity[];
   sourceTravellerIds: (string | null)[];
   clientSecret: string;
+  commsMode: "ops" | "self";
 }) {
   const stripe = useStripe();
   const elements = useElements();
@@ -523,7 +580,7 @@ function StripePaymentForm({
       const res = await fetch("/api/book", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ p, dealId, contact: { name, email }, travellers, sourceTravellerIds, paymentIntentId }),
+        body: JSON.stringify({ p, dealId, contact: { name, email }, travellers, sourceTravellerIds, paymentIntentId, commsMode }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Booking failed");

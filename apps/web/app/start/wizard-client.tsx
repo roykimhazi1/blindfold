@@ -126,7 +126,6 @@ const PARTY_PRESETS: { label: string; adults: number; childAges: number[]; party
   { label: "Friends", adults: 4, childAges: [], partyType: "friends" },
 ];
 
-const TODAY = "2026-06-04"; // matches the product's "now"; keeps SSR/hydration stable
 
 function fmtDate(d: string): string {
   const t = Date.parse(d);
@@ -139,7 +138,14 @@ function addDays(d: string, days: number): string {
   return new Date(t + days * 86400000).toISOString().slice(0, 10);
 }
 
-export function WizardClient({ defaultNationality = "IL" }: { defaultNationality?: string }) {
+export function WizardClient({
+  defaultNationality = "IL",
+  today,
+}: {
+  defaultNationality?: string;
+  /** Server-computed "now" (YYYY-MM-DD) so SSR and hydration agree. */
+  today: string;
+}) {
   const router = useRouter();
   const [phase, setPhase] = useState<Phase>("level");
   const [level, setLevel] = useState<Level>("blackout");
@@ -149,8 +155,9 @@ export function WizardClient({ defaultNationality = "IL" }: { defaultNationality
   const [amount, setAmount] = useState(8000);
   const [currency, setCurrency] = useState<Currency>("ILS");
   const [perPerson, setPerPerson] = useState(false);
-  const [startDate, setStartDate] = useState("2026-07-10");
-  const [endDate, setEndDate] = useState("2026-07-14");
+  // Default window: a month-ish out, 4 nights — easy to adjust in the step.
+  const [startDate, setStartDate] = useState(() => addDays(today, 36));
+  const [endDate, setEndDate] = useState(() => addDays(today, 40));
   const [flexible, setFlexible] = useState(true);
   const [adults, setAdults] = useState(2);
   const [childAges, setChildAges] = useState<number[]>([]);
@@ -407,7 +414,7 @@ export function WizardClient({ defaultNationality = "IL" }: { defaultNationality
                 <div className="grid grid-cols-2 gap-3">
                   <div>
                     <label className="text-sm text-white/60">From</label>
-                    <input type="date" value={startDate} min={TODAY} onChange={(e) => setStart(e.target.value)}
+                    <input type="date" value={startDate} min={today} onChange={(e) => setStart(e.target.value)}
                       className="mt-1 w-full rounded-2xl border border-white/15 bg-white/5 px-4 py-3 outline-none focus:border-brand-400" aria-label="Departure date" />
                   </div>
                   <div>

@@ -12,10 +12,11 @@ Book a complete trip — flights, hotel, airport transfer, and attractions — t
 apps/
   web/        Next.js (App Router) — marketing + booking wizard + reveal journey + admin
 packages/
-  engine/     Deterministic deal pipeline + mock providers + seed catalog (the heart)
+  engine/     Deterministic deal pipeline + providers (mock + Duffel) + seed catalog (the heart)
   agents/     Orchestrator + specialist AI agents (Claude tool-use, mock fallback)
-  types/      Shared TypeScript types / DTOs
 ```
+
+> Shared domain types live in `packages/engine/src/types.ts` — there is no separate types package.
 
 ## Quick start
 
@@ -36,7 +37,7 @@ npm test
 
 `params → Destination Scout → price (flights/hotel/transfer/attractions) → budget fit → score & rank → pick 3 diverse → hint assembly (+ leak-check) → 3 Surprise Deals`
 
-See [the plan](.claude/plans) and `packages/engine/src/pipeline.ts` for details.
+See [the architecture plan](.claude/plans/sourcing-discovery-first-architecture.md) and `packages/engine/src/pipeline.ts` for details.
 
 ## Environment
 

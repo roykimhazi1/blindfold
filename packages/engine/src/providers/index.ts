@@ -3,8 +3,9 @@ import { mockProviders } from "./mock.ts";
 import { liveProviders } from "./live.ts";
 
 // Provider mode selector. The pipeline talks to one `Providers` interface; the
-// concrete source is swapped here. Real flight/hotel adapters (Duffel, Hotelbeds,
-// transfer partners) drop in behind `sandbox`/`live` without touching the engine.
+// concrete source is swapped here. Real flight/hotel adapters (Duffel offers,
+// Duffel Stays, transfer partners) drop in behind `sandbox`/`live` without
+// touching the engine.
 export type ProviderMode = "mock" | "sandbox" | "live";
 
 let warnedFallback = false;
@@ -32,14 +33,14 @@ export function getProviders(mode?: ProviderMode): Providers {
     }
     return mockProviders;
   }
-  // Real adapters (Duffel flights, Hotelbeds hotels); each falls back to mock
-  // per-call if its own key/SDK is missing.
+  // Real adapters (Duffel flights + Duffel Stays hotels); each falls back to
+  // mock per-call if the key is missing or the API misses.
   return liveProviders;
 }
 
 function hasLiveCredentials(): boolean {
   if (typeof process === "undefined") return false;
-  return Boolean(process.env?.DUFFEL_API_KEY || process.env?.HOTELBEDS_API_KEY);
+  return Boolean(process.env?.DUFFEL_API_KEY);
 }
 
 export { mockProviders };

@@ -1,4 +1,4 @@
-import type { PricedComponents } from "./types.ts";
+import type { PricedComponents, PassengerIdentity, SupplierRef } from "./types.ts";
 import { hashString } from "./util.ts";
 
 // ── Fulfillment (the booking saga) ───────────────────────────────────
@@ -22,6 +22,13 @@ export interface BookInput {
   priceEur: number;
   /** Stable key so retries never double-book (idempotency). */
   idempotencyKey: string;
+  /** Supplier handle (offer/rate id) captured at re-quote time. */
+  supplier?: SupplierRef;
+  /** Per-traveller identity (passport) — real suppliers require it. */
+  passengers?: PassengerIdentity[];
+  /** Booking contact, per the customer's secrecy choice (ops alias or own). */
+  contactEmail?: string;
+  contactPhone?: string;
 }
 
 export interface DomainBooker {
@@ -41,7 +48,7 @@ export type BookingResult =
 
 // Deterministic mock supplier: the ref is a pure function of the idempotency
 // key, so re-running a booking returns the same ref instead of double-booking.
-function mockBooker(domain: BookingDomain): DomainBooker {
+export function mockBooker(domain: BookingDomain): DomainBooker {
   return {
     async book(input: BookInput): Promise<SupplierOrder> {
       return {
@@ -74,12 +81,17 @@ function bookerFor(f: Fulfillment, domain: BookingDomain): DomainBooker {
  */
 export async function bookBundle(
   components: PricedComponents,
-  opts: { bookingId: string; fulfillment?: Fulfillment },
+  opts: {
+    bookingId: string;
+    fulfillment?: Fulfillment;
+    passengers?: PassengerIdentity[];
+    contact?: { email?: string; phone?: string };
+  },
 ): Promise<BookingResult> {
   const f = opts.fulfillment ?? mockFulfillment;
-  const legs: { domain: BookingDomain; destinationId: string; priceEur: number }[] = [
-    { domain: "flight", destinationId: components.flight.destinationId, priceEur: components.flight.totalPrice },
-    { domain: "hotel", destinationId: components.hotel.destinationId, priceEur: components.hotel.totalPrice },
+  const legs: { domain: BookingDomain; destinationId: string; priceEur: number; supplier?: SupplierRef }[] = [
+    { domain: "flight", destinationId: components.flight.destinationId, priceEur: components.flight.totalPrice, supplier: components.flight.supplier },
+    { domain: "hotel", destinationId: components.hotel.destinationId, priceEur: components.hotel.totalPrice, supplier: components.hotel.supplier },
     { domain: "attractions", destinationId: components.attractions.destinationId, priceEur: components.attractions.totalPrice },
   ];
 
@@ -90,6 +102,10 @@ export async function bookBundle(
         destinationId: leg.destinationId,
         priceEur: leg.priceEur,
         idempotencyKey: `${opts.bookingId}:${leg.domain}`,
+        supplier: leg.supplier,
+        passengers: opts.passengers,
+        contactEmail: opts.contact?.email,
+        contactPhone: opts.contact?.phone,
       });
       if (order.status !== "confirmed") throw new Error(`${leg.domain} order not confirmed`);
       placed.push(order);
