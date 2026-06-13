@@ -14,12 +14,11 @@ import {
   budgetCeilingEur,
   fitsBudget,
   scoreOption,
-  selectDiverse,
   buildHints,
   assertNoLeaks,
   toSurpriseDeal,
 } from "@sv/engine";
-import type { LlmClient } from "./llm.ts";
+import { createLlmClient, type LlmClient } from "./llm.ts";
 import type { AgentTrace, OrchestratorResult } from "./types.ts";
 import {
   allocateEnvelope,
@@ -28,6 +27,7 @@ import {
   chooseAttractions,
   type BudgetEnvelope,
 } from "./specialists.ts";
+import { planSelection } from "./planner.ts";
 
 export interface ScheduleOptions extends RunOptions {
   /** Reserved for the LLM tool-use path; unused in mock mode. */
@@ -58,6 +58,7 @@ export async function scheduleTrip(
   const catalog = opts.catalog ?? activeDestinations();
   const count = opts.count ?? 3;
 
+  const llm = opts.llm ?? createLlmClient();
   const pax = params.travelers.adults + params.travelers.childrenAges.length;
   const ceilingEur = budgetCeilingEur(params.budget, pax);
   const envelope = allocateEnvelope(ceilingEur);
@@ -71,9 +72,9 @@ export async function scheduleTrip(
   await Promise.all(
     candidates.map(async (dest) => {
       const [flight, hotel, attractions, transfer] = await Promise.all([
-        chooseFlight(dest, params, envelope, providers, opts.llm),
-        chooseHotel(dest, params, envelope, providers, opts.llm),
-        chooseAttractions(dest, params, envelope, providers, opts.llm),
+        chooseFlight(dest, params, envelope, providers, llm),
+        chooseHotel(dest, params, envelope, providers, llm),
+        chooseAttractions(dest, params, envelope, providers, llm),
         providers.transfers.quote(dest, params),
       ]);
       if (!flight || !hotel || !attractions || !transfer) return;
@@ -96,20 +97,26 @@ export async function scheduleTrip(
     }),
   );
 
-  // [select] top N diverse → redact to client-safe deals.
-  const selected = selectDiverse(priced, count);
+  // [master planner] choose the final N — LLM taste when available, else the
+  // deterministic diversity pick. Either way it only chooses among priced,
+  // in-budget, leak-checked options. → redact to client-safe deals.
+  const plan = await planSelection(priced, params, llm, count);
+  const selected = plan.selected;
   const deals: SurpriseDeal[] = selected.map((o) => toSurpriseDeal(o, params));
 
   return {
     deals,
     options: selected,
-    traces: buildTraces({
-      candidates: candidates.length,
-      priced: priced.length,
-      selected: selected.length,
-      envelope,
-      started,
-    }),
+    traces: [
+      ...buildTraces({
+        candidates: candidates.length,
+        priced: priced.length,
+        selected: selected.length,
+        envelope,
+        started,
+      }),
+      plan.trace,
+    ],
     diagnostics: {
       candidates: candidates.length,
       priced: priced.length,
