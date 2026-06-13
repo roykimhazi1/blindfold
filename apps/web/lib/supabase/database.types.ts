@@ -140,6 +140,7 @@ export type Database = {
         Row: {
           breakdown_eur: Json
           cancelled_at_iso: string | null
+          comms_mode: string
           contact_email: string
           contact_name: string
           created_at_iso: string
@@ -163,6 +164,7 @@ export type Database = {
         Insert: {
           breakdown_eur: Json
           cancelled_at_iso?: string | null
+          comms_mode?: string
           contact_email: string
           contact_name: string
           created_at_iso: string
@@ -186,6 +188,7 @@ export type Database = {
         Update: {
           breakdown_eur?: Json
           cancelled_at_iso?: string | null
+          comms_mode?: string
           contact_email?: string
           contact_name?: string
           created_at_iso?: string
@@ -205,6 +208,57 @@ export type Database = {
           supplier_refs?: Json | null
           travelers?: number
           user_id?: string
+        }
+        Relationships: []
+      }
+      destination_fares: {
+        Row: {
+          id: string
+          origin: string
+          destination_airport: string
+          destination_city: string
+          depart_date: string
+          nights: number
+          cheapest_total_eur: number
+          currency: string
+          carrier: string | null
+          direct: boolean
+          duration_hours: number | null
+          offer_sample: Json | null
+          refreshed_at: string
+          expires_at: string
+        }
+        Insert: {
+          id?: string
+          origin?: string
+          destination_airport: string
+          destination_city: string
+          depart_date: string
+          nights: number
+          cheapest_total_eur: number
+          currency?: string
+          carrier?: string | null
+          direct?: boolean
+          duration_hours?: number | null
+          offer_sample?: Json | null
+          refreshed_at?: string
+          expires_at: string
+        }
+        Update: {
+          id?: string
+          origin?: string
+          destination_airport?: string
+          destination_city?: string
+          depart_date?: string
+          nights?: number
+          cheapest_total_eur?: number
+          currency?: string
+          carrier?: string | null
+          direct?: boolean
+          duration_hours?: number | null
+          offer_sample?: Json | null
+          refreshed_at?: string
+          expires_at?: string
         }
         Relationships: []
       }

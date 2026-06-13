@@ -47,3 +47,43 @@ test("a creative non-leaky LLM teaser is used", async () => {
     "expected the creative teaser to be used",
   );
 });
+
+const bigBudget = exampleParams({ budget: { amount: 6000, currency: "EUR", perPerson: false } });
+
+test("a clean planner rationale surfaces as a leak-safe pitch", async () => {
+  // One client serves both calls: planner JSON for the master, a teaser otherwise.
+  const planner: LlmClient = {
+    mode: "anthropic",
+    async complete(req) {
+      if (req.system.includes("trip-planning master")) {
+        return '{"picks":[{"i":0,"why":"made for a slow, sunny week"},{"i":1,"why":"big-city energy and food"},{"i":2,"why":"quiet and off the beaten path"}]}';
+      }
+      return "Somewhere good is waiting for you.";
+    },
+  };
+  const res = await orchestrateDeals(bigBudget, { llm: planner });
+  assert.ok(res.deals.some((d) => d.pitch && d.pitch.length > 0), "expected at least one pitch");
+  const cities = CATALOG.map((d) => d.city.toLowerCase());
+  for (const d of res.deals) {
+    if (!d.pitch) continue;
+    const blob = d.pitch.toLowerCase();
+    for (const c of cities) assert.ok(!blob.includes(c), `pitch leaked "${c}"`);
+  }
+});
+
+test("a leaky planner rationale is dropped, never shown as a pitch", async () => {
+  const leakyPlanner: LlmClient = {
+    mode: "anthropic",
+    async complete(req) {
+      if (req.system.includes("trip-planning master")) {
+        return `{"picks":[{"i":0,"why":"the beaches near ${CATALOG[0]!.city} are unreal"}]}`;
+      }
+      return "A lovely escape awaits.";
+    },
+  };
+  const res = await orchestrateDeals(bigBudget, { llm: leakyPlanner });
+  const city = CATALOG[0]!.city.toLowerCase();
+  for (const d of res.deals) {
+    assert.ok(!(d.pitch ?? "").toLowerCase().includes(city), "a city-naming pitch must be dropped");
+  }
+});

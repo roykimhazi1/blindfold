@@ -23,18 +23,31 @@ export function flightBand(hours: number): FlightBand {
 }
 
 const PACKING_TIP: Record<ClimateBand, string> = {
-  cold: "Pack warm — coat, layers, and something cozy for the evenings.",
-  mild: "Bring layers and a light jacket; days are pleasant, evenings cooler.",
-  warm: "Light clothes, sunglasses, and a hat — you'll want the sunscreen.",
-  hot: "Beat the heat: breathable clothes, swimwear, and plenty of sunscreen.",
+  cold: "Bring the warm coat. Trust us on this one.",
+  mild: "A light jacket for the evenings. The days take care of themselves.",
+  warm: "Sunglasses, light layers, and the sunscreen you always forget.",
+  hot: "Pack light, pack a swimsuit, and double up on the sunscreen.",
 };
 
 const VIBE_WORD: Record<string, string> = {
-  beach: "sun-and-sea",
-  city: "buzzing-streets",
-  nature: "wide-open-nature",
-  nightlife: "after-dark",
-  culture: "history-soaked",
+  beach: "salt-in-the-air",
+  city: "big-city",
+  nature: "wide-open",
+  nightlife: "up-past-midnight",
+  culture: "old-streets",
+};
+
+const FLIGHT_PHRASE: Record<FlightBand, string> = {
+  short: "a quick hop",
+  medium: "a short flight",
+  long: "a few hours in the air",
+};
+
+const CLIMATE_WORD: Record<ClimateBand, string> = {
+  cold: "crisp",
+  mild: "mild",
+  warm: "warm",
+  hot: "hot",
 };
 
 // Occasion sets the teaser's opening note. Leak-safe by construction — these
@@ -59,12 +72,14 @@ export function buildHints(
   const fBand = flightBand(components.flight.durationHours);
   const reveal = params.surpriseIntensity === "region";
 
-  const vibeWords = dest.vibeTags.map((t) => VIBE_WORD[t] ?? t).slice(0, 2).join(" & ");
-  const lead = params.occasion ? OCCASION_LEAD[params.occasion] : "A";
+  const vibeWords = dest.vibeTags.map((t) => VIBE_WORD[t] ?? t).slice(0, 2).join(", ");
+  // "A warm, big-city kind of trip" / "A dreamy, warm, big-city kind of trip".
+  const lead = params.occasion ? `${OCCASION_LEAD[params.occasion]},` : "A";
   const teaser =
-    `${lead} ${cBand}, ${vibeWords} escape — ${components.hotel.stars}★ stays, ` +
-    `${dest.attractionPackages[0]?.items.length ?? 3} curated experiences, ` +
-    `and a ${fBand} flight away. Where exactly? That's the surprise.`;
+    `${lead} ${CLIMATE_WORD[cBand]}, ${vibeWords} kind of trip: ` +
+    `a ${components.hotel.stars}★ bed, ` +
+    `${dest.attractionPackages[0]?.items.length ?? 3} things already lined up for you, ` +
+    `and ${FLIGHT_PHRASE[fBand]} to get there. The where stays our secret.`;
 
   return {
     climateBand: cBand,

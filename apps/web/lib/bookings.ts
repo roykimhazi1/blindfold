@@ -26,6 +26,13 @@ export interface BookingSecret {
   attractions: string[];
 }
 
+/**
+ * Who receives supplier (airline/hotel) communications for a booking:
+ * 'ops' — Blindfold's concierge inbox, the traveller stays spoiler-free;
+ * 'self' — the traveller's own email, receipts may name the destination.
+ */
+export type CommsMode = "ops" | "self";
+
 export interface Booking {
   id: string;
   /** Owner (auth.users.id) — used for ownership checks, never exposed client-side. */
@@ -53,6 +60,8 @@ export interface Booking {
   supplierRefs?: string[];
   /** Stripe PaymentIntent ID — set when checkout used real Stripe. */
   stripePaymentIntentId?: string;
+  /** Where supplier emails go — the customer's secrecy choice at checkout. */
+  commsMode: CommsMode;
   /** Who's travelling — names only (no passport PII). Loaded by getBooking. */
   passengers?: { type: string; givenName: string; familyName: string }[];
 }
@@ -99,6 +108,8 @@ function rowToBooking(b: BookingRow, s: SecretRow): Booking {
     refunded: b.refunded == null ? undefined : Number(b.refunded),
     cancelledAtIso: b.cancelled_at_iso ?? undefined,
     supplierRefs: (b.supplier_refs as string[] | null) ?? undefined,
+    stripePaymentIntentId: b.stripe_payment_intent_id ?? undefined,
+    commsMode: b.comms_mode === "ops" ? "ops" : "self",
   };
 }
 
@@ -112,6 +123,7 @@ export async function createBooking(
   supplierRefs?: string[],
   stripePaymentIntentId?: string,
   sourceTravellerIds?: (string | null)[],
+  commsMode: CommsMode = "self",
 ): Promise<Booking> {
   const { destination: d, components: c } = option;
   const schedule = buildSchedule({
@@ -121,7 +133,9 @@ export async function createBooking(
   });
   const id = bookingIdFromDeal(deal.id);
   const now = new Date().toISOString();
-  const hotelName = realHotelName(d.city, c.hotel.stars);
+  // A supplier-backed quote names the hotel that was actually booked; the
+  // curated name pool only dresses up deterministic mock stays for the demo.
+  const hotelName = c.hotel.supplier ? c.hotel.name : realHotelName(d.city, c.hotel.stars);
 
   const booking: Booking = {
     id,
@@ -156,6 +170,7 @@ export async function createBooking(
     status: "confirmed",
     supplierRefs,
     stripePaymentIntentId,
+    commsMode,
   };
 
   const supa = supabaseAdmin();
@@ -177,6 +192,8 @@ export async function createBooking(
     demo_stage: booking.demoStage,
     status: booking.status,
     supplier_refs: (supplierRefs ?? null) as unknown as Json,
+    stripe_payment_intent_id: stripePaymentIntentId ?? null,
+    comms_mode: commsMode,
   });
   if (bErr) throw new Error("Failed to persist booking: " + bErr.message);
 

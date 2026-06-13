@@ -27,7 +27,8 @@ export function SiteFooter() {
           <div className="flex flex-col gap-2">
             <span className="mb-1 text-xs uppercase tracking-wide text-white/35">Company</span>
             <Link href="/start" className="text-white/60 hover:text-white">Plan a trip</Link>
-            <Link href="/admin/agent-runs" className="text-white/60 hover:text-white">Agent runs</Link>
+            <Link href="/terms" className="text-white/60 hover:text-white">Terms</Link>
+            <Link href="/privacy" className="text-white/60 hover:text-white">Privacy</Link>
           </div>
         </div>
       </div>

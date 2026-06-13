@@ -123,10 +123,10 @@ export function toSurpriseDeal(o: ScoredOption, params: TripParams): SurpriseDea
     priceTotal: convertFromEur(o.breakdown.total, currency),
     currency,
     includes: [
-      `Round-trip flights (${o.components.flight.durationHours.toFixed(1)}h each way)`,
+      `Flights there and back (about ${o.components.flight.durationHours.toFixed(1)}h each way)`,
       `${o.components.hotel.nights} nights · ${o.components.hotel.stars}★ · ${board}`,
-      `Private airport transfer (hotel revealed en route)`,
-      `${o.components.attractions.items.length} curated experiences`,
+      `A driver waiting when you land — they know the hotel, you don't yet`,
+      `${o.components.attractions.items.length} things to do, picked for you`,
     ],
   };
 }

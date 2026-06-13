@@ -1,0 +1,31 @@
+# Nightly Duffel fare fan-out → destination_fares cache (Phase B).
+# A safe no-op until the DUFFEL_API_KEY / SUPABASE_SERVICE_ROLE_KEY secrets
+# are configured (the script exits 0 without a Duffel key).
+name: Refresh destination fares
+
+on:
+  schedule:
+    - cron: "23 2 * * *" # nightly, 02:23 UTC
+  workflow_dispatch: {}
+
+concurrency:
+  group: refresh-fares
+  cancel-in-progress: false
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    timeout-minutes: 50
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Fan out fares
+        env:
+          DUFFEL_API_KEY: ${{ secrets.DUFFEL_API_KEY }}
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        run: npm run fares:refresh

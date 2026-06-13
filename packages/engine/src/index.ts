@@ -1,6 +1,7 @@
 // Public surface of the deal engine.
 export * from "./types.ts";
-export { CATALOG, activeDestinations, findDestination } from "./catalog.ts";
+export { CATALOG, activeDestinations, findDestination, findDestinationByAirport } from "./catalog.ts";
+export { UNIVERSE, genericAttractionPackages } from "./universe.ts";
 export { filterCandidates } from "./filters.ts";
 export { mockProviders } from "./providers/mock.ts";
 export { getProviders, resolveMode, type ProviderMode } from "./providers/index.ts";
@@ -30,6 +31,7 @@ export {
 export {
   bookBundle,
   mockFulfillment,
+  mockBooker,
   type Fulfillment,
   type DomainBooker,
   type SupplierOrder,
@@ -37,6 +39,14 @@ export {
   type BookingDomain,
   type BookInput,
 } from "./fulfillment.ts";
+export { getFulfillment, duffelFulfillment, toDuffelOrderPassenger } from "./fulfillment-duffel.ts";
+export { requoteOption, type RequoteResult, type RequoteOptions } from "./requote.ts";
+export {
+  runDiscoveryPipeline,
+  type CachedFare,
+  type DiscoveryOptions,
+  type DiscoveryResult,
+} from "./discovery.ts";
 export {
   REVEAL_ORDER,
   stageRank,

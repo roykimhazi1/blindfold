@@ -1,12 +1,13 @@
 import Link from "next/link";
 import { redirect, notFound } from "next/navigation";
 import { getSession } from "@/lib/auth";
-import { Compass, Wallet, Building, Gift, Sparkles, Mail } from "@/components/icons";
+import { Compass, Wallet, Building, Gift, Sparkles, Mail, Plane } from "@/components/icons";
 
 const NAV = [
   { href: "/admin", label: "Dashboard", Icon: Compass },
   { href: "/admin/bookings", label: "Bookings", Icon: Gift },
   { href: "/admin/destinations", label: "Destinations", Icon: Building },
+  { href: "/admin/fares", label: "Fare cache", Icon: Plane },
   { href: "/admin/pricing", label: "Pricing & fees", Icon: Wallet },
   { href: "/admin/outbox", label: "Outbox", Icon: Mail },
   { href: "/admin/agent-runs", label: "Agent runs", Icon: Sparkles },

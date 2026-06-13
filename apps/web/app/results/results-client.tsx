@@ -20,6 +20,12 @@ const LOADING_LINES = [
   "Hiding the destination so it stays a secret 🤫",
 ];
 
+const FLIGHT_LABEL: Record<string, string> = {
+  short: "Quick hop",
+  medium: "Short flight",
+  long: "A few hours away",
+};
+
 const CLIMATE = {
   cold: { Icon: Snow, label: "Cold",    photo: PHOTOS.skiing },
   mild: { Icon: Sun,  label: "Mild",    photo: PHOTOS.mistyHills },
@@ -134,13 +140,20 @@ export function ResultsClient() {
               <div className="flex flex-1 flex-col p-6">
                 <div className="flex flex-wrap items-center gap-2">
                   <Tag><c.Icon size={14} className="text-sun-400" /> {c.label}</Tag>
-                  <Tag><Plane size={14} /> {deal.hints.flightBand} flight</Tag>
+                  <Tag><Plane size={14} /> {FLIGHT_LABEL[deal.hints.flightBand] ?? deal.hints.flightBand}</Tag>
                   <span className="ml-auto inline-flex text-sun-400">
                     {Array.from({ length: deal.hints.starBand }).map((_, k) => <Star key={k} size={14} filled />)}
                   </span>
                 </div>
 
                 <p className="mt-4 text-sm leading-relaxed text-white/80">{deal.hints.teaser}</p>
+
+                {deal.pitch && (
+                  <p className="mt-3 flex items-start gap-1.5 text-sm italic text-brand-200">
+                    <Sparkles size={14} className="mt-0.5 shrink-0" />
+                    <span>Why we picked this for you: {deal.pitch}</span>
+                  </p>
+                )}
 
                 <div className="mt-3 flex flex-wrap gap-1.5">
                   {deal.hints.vibeTags.map((v) => {
