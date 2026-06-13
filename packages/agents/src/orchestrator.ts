@@ -1,5 +1,5 @@
 import type { TripParams, RunOptions } from "@sv/engine";
-import { toSurpriseDeal, assertNoLeaks } from "@sv/engine";
+import { toSurpriseDeal, assertNoLeaks, findLeaks, findCatalogLeaks, activeDestinations } from "@sv/engine";
 import { createLlmClient, type LlmClient } from "./llm.ts";
 import { runCopywriter } from "./copywriter.ts";
 import { scheduleTrip } from "./scheduler.ts";
@@ -33,6 +33,7 @@ export async function orchestrateDeals(
   const traces: AgentTrace[] = [...run.traces];
 
   // [2] Copywriter enriches each selected option's teaser (leak-guarded).
+  const catalog = activeDestinations();
   const deals = await Promise.all(
     run.options.map(async (option, i) => {
       const { teaser, trace } = await runCopywriter(llm, option, params);
@@ -40,15 +41,31 @@ export async function orchestrateDeals(
       const enriched = { ...option, hints: { ...option.hints, teaser } };
       assertNoLeaks(enriched.hints, option.destination); // belt-and-suspenders
       const deal = toSurpriseDeal(enriched, params);
+      // The planner's "why this one" is LLM-written, so it gets the same
+      // leak-guard the teaser does before it can reach the client.
+      const pitch = leakSafePitch(run.rationales[i], option.destination, catalog);
       // Preserve the Scheduler Master's opaque id from the original redaction.
-      return { ...deal, id: run.deals[i]?.id ?? deal.id };
+      return { ...deal, id: run.deals[i]?.id ?? deal.id, ...(pitch ? { pitch } : {}) };
     }),
   );
 
   return {
     deals,
     options: run.options,
+    rationales: run.rationales,
     traces,
     diagnostics: { ...run.diagnostics, totalMs: Date.now() - started },
   };
+}
+
+/** A planner rationale is only surfaced if it's non-empty and names no place. */
+function leakSafePitch(
+  rationale: string | undefined,
+  destination: Parameters<typeof findLeaks>[0],
+  catalog: ReturnType<typeof activeDestinations>,
+): string | undefined {
+  const pitch = rationale?.trim();
+  if (!pitch) return undefined;
+  const leaks = [...findLeaks(destination, pitch), ...findCatalogLeaks(pitch, catalog)];
+  return leaks.length === 0 ? pitch : undefined;
 }

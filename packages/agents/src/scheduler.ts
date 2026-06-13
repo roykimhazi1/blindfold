@@ -107,6 +107,7 @@ export async function scheduleTrip(
   return {
     deals,
     options: selected,
+    rationales: plan.rationales,
     traces: [
       ...buildTraces({
         candidates: candidates.length,

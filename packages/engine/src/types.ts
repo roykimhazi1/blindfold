@@ -290,4 +290,7 @@ export interface SurpriseDeal {
   priceTotal: number;
   currency: Currency;
   includes: string[];
+  /** The master planner's leak-checked "why we picked this for you" line.
+   *  Present only when an LLM planner ran and its reason passed the leak-check. */
+  pitch?: string;
 }

@@ -148,6 +148,13 @@ export function ResultsClient() {
 
                 <p className="mt-4 text-sm leading-relaxed text-white/80">{deal.hints.teaser}</p>
 
+                {deal.pitch && (
+                  <p className="mt-3 flex items-start gap-1.5 text-sm italic text-brand-200">
+                    <Sparkles size={14} className="mt-0.5 shrink-0" />
+                    <span>Why we picked this for you: {deal.pitch}</span>
+                  </p>
+                )}
+
                 <div className="mt-3 flex flex-wrap gap-1.5">
                   {deal.hints.vibeTags.map((v) => {
                     const VI = VIBE_ICON[v];

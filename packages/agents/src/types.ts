@@ -25,6 +25,9 @@ export interface AgentTrace {
 export interface OrchestratorResult {
   deals: SurpriseDeal[];
   options: ScoredOption[];
+  /** Master-planner "why this one" lines, index-aligned with options/deals.
+   *  Empty strings where the planner had no reason (deterministic fallback). */
+  rationales: string[];
   traces: AgentTrace[];
   diagnostics: {
     candidates: number;
