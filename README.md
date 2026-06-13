@@ -6,6 +6,8 @@ Book a complete trip — flights, hotel, airport transfer, and attractions — t
 
 > Built as a TypeScript monorepo. The deal engine and AI-agent layer run on **mock data** out of the box (no API keys needed), so you can run the whole product locally today.
 
+📋 **Start here:** [the project brief & road to production](docs/PROJECT-BRIEF.md) — what this is, what's built, and the full plan (deployment + marketing included).
+
 ## Monorepo layout
 
 ```

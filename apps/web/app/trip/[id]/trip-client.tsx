@@ -171,7 +171,7 @@ export function TripClient({ initial }: { initial: TripView }) {
         {stageAtLeast(stage, "teaser") ? (
           <Stage Icon={Suitcase} title="A week to go — pack for this" tone="done">
             <p className="mt-2 text-white/80">{view.hints.packingTip}</p>
-            <p className="mt-2 text-xs text-white/45">{climateLine(view.hints.climateBand)} · {view.hints.flightBand} flight</p>
+            <p className="mt-2 text-xs text-white/45">{climateLine(view.hints.climateBand)} · {FLIGHT_WORDS[view.hints.flightBand] ?? `${view.hints.flightBand} flight`}</p>
           </Stage>
         ) : (
           <LockedStage Icon={Mail} title="A packing nudge" unlockAt={view.schedule.teaserAt}
@@ -256,6 +256,12 @@ export function TripClient({ initial }: { initial: TripView }) {
 function climateLine(band: string) {
   return ({ cold: "Expect it chilly", mild: "Mild and pleasant", warm: "Nice and warm", hot: "Bring the heat" } as Record<string, string>)[band] ?? "";
 }
+
+const FLIGHT_WORDS: Record<string, string> = {
+  short: "a quick hop away",
+  medium: "a short flight away",
+  long: "a few hours in the air",
+};
 
 function Countdown({ gateAt }: { gateAt: number }) {
   // `now` stays null until after mount so server and first client render match

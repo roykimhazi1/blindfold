@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import type { TripParams } from "@sv/engine";
 import { sourceDeals } from "@/lib/deal-source";
+import { rateLimit, clientKey } from "@/lib/rate-limit";
 
 export const runtime = "nodejs";
 
@@ -10,6 +11,10 @@ export const runtime = "nodejs";
  * Uses mock providers + mock LLM unless ANTHROPIC_API_KEY / live keys are set.
  */
 export async function POST(req: Request) {
+  if (!rateLimit(clientKey(req, "deals"), 20, 60_000)) {
+    return NextResponse.json({ error: "Easy there — give it a few seconds and try again." }, { status: 429 });
+  }
+
   let params: TripParams;
   try {
     params = (await req.json()) as TripParams;

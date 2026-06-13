@@ -8,6 +8,7 @@ import { verifyPaymentIntent, stripeEnabled } from "@/lib/stripe";
 import { getSession } from "@/lib/auth";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { isPassengerValid, passportValidThrough, normalizePassenger } from "@/lib/passenger";
+import { rateLimit, clientKey } from "@/lib/rate-limit";
 
 export const runtime = "nodejs";
 
@@ -46,6 +47,10 @@ export async function POST(req: Request) {
     body = await req.json();
   } catch {
     return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
+  }
+
+  if (!rateLimit(clientKey(req, "book"), 10, 60_000)) {
+    return NextResponse.json({ error: "Too many booking attempts — give it a minute." }, { status: 429 });
   }
 
   // Account-first: a booking must belong to a signed-in user.
