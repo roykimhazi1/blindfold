@@ -135,6 +135,7 @@ export function CheckoutClient({
   const contactReady = name.trim().length > 1 && /\S+@\S+\.\S+/.test(email);
   const stripeEnabled = stripePromise !== null;
   const allTravellersValid = slots.length > 0 && slots.every((s) => isPassengerValid(s.fields));
+  const readyCount = slots.filter((s) => isPassengerValid(s.fields)).length;
   const passengers = useMemo(() => slots.map(slotToPassenger), [slots]);
 
   function patchSlot(index: number, patch: Partial<Slot>) {
@@ -274,6 +275,14 @@ export function CheckoutClient({
       {/* Step 1 — Contact details */}
       {step === "contact" && (
         <form onSubmit={handleContactSubmit} className="card mt-6 space-y-4 p-6">
+          {/* Preserve the booking context: if the form ever submits natively
+              (e.g. Enter pressed before hydration attaches the handler), it
+              reloads /checkout WITH the deal still attached, instead of
+              navigating to a context-less empty state. */}
+          <input type="hidden" name="deal" value={dealId} />
+          <input type="hidden" name="p" value={p} />
+          <input type="hidden" name="price" value={String(price)} />
+          <input type="hidden" name="cur" value={cur} />
           <div>
             <label htmlFor="name" className="text-sm text-white/60">Who&apos;s the trip under?</label>
             <input
@@ -372,12 +381,28 @@ export function CheckoutClient({
             <p className="text-sm text-white/60">
               Airlines need each traveller&apos;s passport details to issue tickets. We ask once, here.
             </p>
+            {slots.length > 1 && (
+              <p className="mt-2 text-xs text-white/45">
+                {readyCount === slots.length
+                  ? "Everyone's set — you're good to go."
+                  : `${readyCount} of ${slots.length} travellers ready`}
+              </p>
+            )}
           </div>
 
-          {slots.map((s, i) => (
+          {slots.map((s, i) => {
+            const ready = isPassengerValid(s.fields);
+            return (
             <div key={i} className="card space-y-4 p-6">
-              <div className="flex items-center justify-between">
-                <h3 className="font-semibold">{s.label}</h3>
+              <div className="flex items-center justify-between gap-3">
+                <h3 className="flex items-center gap-2 font-semibold">
+                  {s.label}
+                  {ready && (
+                    <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/15 px-2 py-0.5 text-xs font-medium text-emerald-300">
+                      <Check size={12} /> Ready
+                    </span>
+                  )}
+                </h3>
                 {savedTravellers.length > 0 && (
                   <select
                     value={s.sourceId ?? ""}
@@ -414,7 +439,8 @@ export function CheckoutClient({
                 </label>
               )}
             </div>
-          ))}
+            );
+          })}
 
           {confirm && (
             <div className="rounded-xl bg-amber-500/15 px-3 py-2.5 text-sm text-amber-100" role="alert">
